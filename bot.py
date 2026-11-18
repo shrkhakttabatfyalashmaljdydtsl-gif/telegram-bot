@@ -2,7 +2,7 @@ import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (26) - النسخة العالمية المحدثة ====================
+# ==================== الكود رقم (26) - النسخة المحدثة نهائياً ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -352,12 +352,19 @@ def callback_inline(call):
     )
   elif call.data == "bot_balance":
     current_balance = user_balances.get(chat_id, 0.0)
+    balance_msg = (
+        "💰 **استعلام عن الرصيد المالي:**\n\n"
+        f"✨ أهلاً بك يا غالي في منصة التمويل والاستثمار الاحترافي.\n"
+        f"💼 رصيدك الحالي المتوفر في حسابك:\n"
+        f"💎 `{current_balance:.2f} دولار / نقطة`\n\n"
+        "🚀 نتمنى لك تجربة استثمارية موفقة ومميزة معنا دائماً!"
+    )
     bot.edit_message_text(
-        f"💰 **رصيدك الحالي:**\n`{current_balance}` دولار / نقطة.",
+        balance_msg,
         chat_id,
         message_id,
         parse_mode="Markdown",
-        reply_markup=get_sub_menu_with_payment(),
+        reply_markup=get_back_to_main_menu_only(),
     )
 
   elif call.data == "advertise_channel":
@@ -1056,6 +1063,6 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
   print(
-      "تم تشغيل البوت بنجاح (كود رقم 26 - النسخة العالمية للإعلانات المنجزة)..."
+      "تم تشغيل البوت بنجاح (كود رقم 26 - فصل رصيد البوت وعرض الرصيد فقط)..."
   )
   bot.infinity_polling(timeout=60, long_polling_timeout=60)
