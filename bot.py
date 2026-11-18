@@ -1,8 +1,10 @@
+import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# توكن البوت الخاص بك
-TOKEN = "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo"
+# ==================== الكود رقم (26) ====================
+# قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
+TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
 
 # الآيدي الخاص بك كإدارة
@@ -15,6 +17,9 @@ admin_waiting_for_amount = {}
 user_balances = {}  # يحفظ أرصدة المستخدمين
 user_waiting_for_ad_details = {}
 user_temp_ad_data = {}
+
+# نظام التقييمات (يبدأ بالأساسيات المطلوبة ويتم تحديثها تلقائياً)
+ratings_data = {"positive": 53, "negative": 11, "voted_users": set()}
 
 # قائمة المجلدات الديناميكية مع روابطها
 dynamic_folders = {
@@ -72,6 +77,19 @@ def get_sub_menu_with_payment():
       InlineKeyboardButton("دفع عبر عملات رقمية 🪙", callback_data="pay_crypto"),
       InlineKeyboardButton("دفع عبر نجوم ⭐", callback_data="pay_stars"),
   )
+  keyboard.row(
+      InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="back_to_main")
+  )
+  return keyboard
+
+
+def get_ratings_menu(has_voted=False):
+  keyboard = InlineKeyboardMarkup()
+  if not has_voted:
+    keyboard.row(
+        InlineKeyboardButton("👍 تقييم إيجابي", callback_data="rate_positive"),
+        InlineKeyboardButton("👎 تقييم سلبي", callback_data="rate_negative"),
+    )
   keyboard.row(
       InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="back_to_main")
   )
@@ -239,6 +257,7 @@ def get_admin_action_menu(user_id):
   return keyboard
 
 
+# ==================== أوامر البوت ====================
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
   chat_id = message.chat.id
@@ -314,6 +333,7 @@ def set_folder_link_command(message):
     )
 
 
+# ==================== معالجة الأزرار التفاعلية ====================
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
   chat_id = call.message.chat.id
@@ -327,6 +347,7 @@ def callback_inline(call):
         "💎 **قسم شحن البوت:**\nاختر طريقة الدفع المناسبة للشحن:",
         chat_id,
         message_id,
+        parse_mode="Markdown",
         reply_markup=get_sub_menu_with_payment(),
     )
   elif call.data == "bot_balance":
@@ -400,18 +421,109 @@ def callback_inline(call):
           parse_mode="Markdown",
           reply_markup=get_back_to_main_menu_only(),
       )
+
   elif call.data == "user_ratings":
+    pos = ratings_data["positive"]
+    neg = ratings_data["negative"]
+    total = pos + neg
+
+    pos_pct = (pos / total * 100) if total > 0 else 0.0
+    neg_pct = (neg / total * 100) if total > 0 else 0.0
+
+    has_voted = user_id in ratings_data["voted_users"]
+
+    ratings_text = (
+        "تقرير التقييم الشامل للبوت:\n\n"
+        f"📌 نسبة التقييمات الإيجابية: {pos_pct:.2f}%\n"
+        f"📌 نسبة التقييمات السلبية: {neg_pct:.2f}%\n\n"
+        f"🔢 العدد الإجمالي للمستخدمين الذين قاموا بتقييم البوت: {total}\n\n"
+        f"🟢 عدد التقييمات الإيجابية: {pos}\n"
+        f"🔴 عدد التقييمات السلبية: {neg}"
+    )
+
     bot.edit_message_text(
-        "⭐ **تقييمات المستخدمين:**\nآراء العملاء السابقين في خدماتنا.",
+        ratings_text,
         chat_id,
         message_id,
-        reply_markup=get_sub_menu_with_payment(),
+        reply_markup=get_ratings_menu(has_voted),
     )
+
+  elif call.data == "rate_positive":
+    if user_id not in ratings_data["voted_users"]:
+      ratings_data["positive"] += 1
+      ratings_data["voted_users"].add(user_id)
+      bot.answer_callback_query(call.id, "✅ شكراً لك! تم تسجيل تقييمك الإيجابي.")
+    else:
+      bot.answer_callback_query(
+          call.id, "⚠️ لقد قمت بالتقييم مسبقاً!", show_alert=True
+      )
+
+    pos = ratings_data["positive"]
+    neg = ratings_data["negative"]
+    total = pos + neg
+    pos_pct = (pos / total * 100) if total > 0 else 0.0
+    neg_pct = (neg / total * 100) if total > 0 else 0.0
+
+    updated_text = (
+        "تقرير التقييم الشامل للبوت:\n\n"
+        f"📌 نسبة التقييمات الإيجابية: {pos_pct:.2f}%\n"
+        f"📌 نسبة التقييمات السلبية: {neg_pct:.2f}%\n\n"
+        f"🔢 العدد الإجمالي للمستخدمين الذين قاموا بتقييم البوت: {total}\n\n"
+        f"🟢 عدد التقييمات الإيجابية: {pos}\n"
+        f"🔴 عدد التقييمات السلبية: {neg}"
+    )
+    try:
+      bot.edit_message_text(
+          updated_text,
+          chat_id,
+          message_id,
+          reply_markup=get_ratings_menu(has_voted=True),
+      )
+    except Exception:
+      pass
+
+  elif call.data == "rate_negative":
+    if user_id not in ratings_data["voted_users"]:
+      ratings_data["negative"] += 1
+      ratings_data["voted_users"].add(user_id)
+      bot.answer_callback_query(
+          call.id, "📌 شكراً لك! تم تسجيل تقييمك وسنعمل على تحسين البوت."
+      )
+    else:
+      bot.answer_callback_query(
+          call.id, "⚠️ لقد قمت بالتقييم مسبقاً!", show_alert=True
+      )
+
+    pos = ratings_data["positive"]
+    neg = ratings_data["negative"]
+    total = pos + neg
+    pos_pct = (pos / total * 100) if total > 0 else 0.0
+    neg_pct = (neg / total * 100) if total > 0 else 0.0
+
+    updated_text = (
+        "تقرير التقييم الشامل للبوت:\n\n"
+        f"📌 نسبة التقييمات الإيجابية: {pos_pct:.2f}%\n"
+        f"📌 نسبة التقييمات السلبية: {neg_pct:.2f}%\n\n"
+        f"🔢 العدد الإجمالي للمستخدمين الذين قاموا بتقييم البوت: {total}\n\n"
+        f"🟢 عدد التقييمات الإيجابية: {pos}\n"
+        f"🔴 عدد التقييمات السلبية: {neg}"
+    )
+    try:
+      bot.edit_message_text(
+          updated_text,
+          chat_id,
+          message_id,
+          reply_markup=get_ratings_menu(has_voted=True),
+      )
+    except Exception:
+      pass
+
   elif call.data == "completed_ads":
     bot.edit_message_text(
         "💻 **الإعلانات المنجزة:**\nقائمة بالإعلانات التي تم تنفيذها بنجاح.",
         chat_id,
         message_id,
+        parse_mode="Markdown",
         reply_markup=get_sub_menu_with_payment(),
     )
   elif call.data == "extra_contact":
@@ -419,6 +531,7 @@ def callback_inline(call):
         "🔄 **التواصل والدعم:**\nلأي استفسار أو مساعدة تواصل معنا عبر الأزرار.",
         chat_id,
         message_id,
+        parse_mode="Markdown",
         reply_markup=get_sub_menu_with_payment(),
     )
   elif call.data == "pay_crypto":
@@ -767,6 +880,7 @@ def callback_inline(call):
       )
 
 
+# ==================== معالجة الدفع بالنجوم ====================
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def checkout(pre_checkout_query):
   bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
@@ -799,6 +913,7 @@ def got_payment(message):
     print(f"خطأ إرسال إشعار النجوم للآدمن: {e}")
 
 
+# ==================== معالجة الرسائل والصور ====================
 @bot.message_handler(content_types=["text", "photo"])
 def handle_all_messages(message):
   global current_ad_photo
@@ -921,5 +1036,6 @@ def handle_all_messages(message):
 
 
 # ==================== تشغيل البوت ====================
-print("تم تشغيل البوت بنجاح (كود رقم 25)...")
-bot.infinity_polling()
+if __name__ == "__main__":
+  print("تم تشغيل البوت بنجاح (كود رقم 26)...")
+  bot.infinity_polling(timeout=60, long_polling_timeout=60)
