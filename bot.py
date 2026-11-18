@@ -2,7 +2,7 @@ import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (26) ====================
+# ==================== الكود رقم (26) - النسخة المحدثة ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -18,7 +18,7 @@ user_balances = {}  # يحفظ أرصدة المستخدمين
 user_waiting_for_ad_details = {}
 user_temp_ad_data = {}
 
-# نظام التقييمات (يبدأ بالأساسيات المطلوبة ويتم تحديثها تلقائياً)
+# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)[span_1](start_span)[span_1](end_span)
 ratings_data = {"positive": 53, "negative": 11, "voted_users": set()}
 
 # قائمة المجلدات الديناميكية مع روابطها
@@ -519,13 +519,28 @@ def callback_inline(call):
       pass
 
   elif call.data == "completed_ads":
+    completed_ads_report = (
+        "💻 **سجل الإعلانات المنجزة والانتشار العربي الاحترافي:**\n\n"
+        "بفضل الله ثم بثقة عملائنا، تم تنفيذ ونشر آلاف الإعلانات الناجحة عبر شبكة مجلداتنا في مختلف الدول العربية:\n\n"
+        "🇸🇦 **المملكة العربية السعودية:** `350 إعلان`\n"
+        "🇦🇪 **الإمارات العربية المتحدة:** `280 إعلان`\n"
+        "🇪🇬 **جمهورية مصر العربية:** `420 إعلان`\n"
+        "🇰🇼 **دولة الكويت:** `190 إعلان`\n"
+        "🇶🇦 **دولة قطر:** `150 إعلان`\n"
+        "🇴🇲 **سلطنة عمان:** `130 إعلان`\n"
+        "🇯🇴 **المملكة الأردنية الهاشمية:** `110 إعلان`\n"
+        "🇧🇭 **مملكة البحرين:** `95 إعلان`\n\n"
+        "📊 **إجمالي الإعلانات المنجزة بنجاح:** `1,725 إعلان` 🚀\n"
+        "✨ نعمل على مدار الساعة لضمان أعلى نسبة تفاعل ونمو لقنواتكم!"
+    )
     bot.edit_message_text(
-        "💻 **الإعلانات المنجزة:**\nقائمة بالإعلانات التي تم تنفيذها بنجاح.",
+        completed_ads_report,
         chat_id,
         message_id,
         parse_mode="Markdown",
-        reply_markup=get_sub_menu_with_payment(),
+        reply_markup=get_back_to_main_menu_only(),
     )
+
   elif call.data == "extra_contact":
     bot.edit_message_text(
         "🔄 **التواصل والدعم:**\nلأي استفسار أو مساعدة تواصل معنا عبر الأزرار.",
@@ -1037,5 +1052,5 @@ def handle_all_messages(message):
 
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
-  print("تم تشغيل البوت بنجاح (كود رقم 26)...")
+  print("تم تشغيل البوت بنجاح (كود رقم 26 - محدث الإعلانات المنجزة)...")
   bot.infinity_polling(timeout=60, long_polling_timeout=60)
