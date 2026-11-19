@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (40) ====================
+# ==================== الكود رقم (42) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -1606,3 +1606,4 @@ def handle_all_messages(message):
       )
 
       try:
+       
