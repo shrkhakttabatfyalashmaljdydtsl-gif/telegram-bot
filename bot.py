@@ -1606,4 +1606,27 @@ def handle_all_messages(message):
       )
 
       try:
-       
+        bot.send_photo(
+            ADMIN_ID,
+            file_id,
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=get_admin_action_menu(user_id),
+        )
+      except Exception as e:
+        print(f"خطأ في إرسال الصورة للآدمن: {e}")
+    else:
+      bot.reply_to(
+          message,
+          "📸 شكراً لإرسال الصورة. للشحن، يرجى الدخول إلى (شحن البوت) ثم اختيار"
+          " طريقة الدفع المناسبة.",
+      )
+
+
+# ==================== تشغيل البوت ====================
+if __name__ == "__main__":
+  print(
+      "تم تشغيل البوت بنجاح (الكود رقم 40 - إضافة أمر /mybalance لشحن رصيد"
+      " الأدمن الشخصي)..."
+  )
+  bot.infinity_polling(timeout=60, long_polling_timeout=60)
