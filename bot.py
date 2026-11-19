@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (42) ====================
+# ==================== الكود رقم (39) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -547,47 +547,6 @@ def send_welcome(message):
   user_waiting_for_support_message[chat_id] = False
   text = build_welcome_text(message.from_user)
   bot.send_message(chat_id, text, reply_markup=get_main_menu())
-
-
-@bot.message_handler(commands=["mybalance"])
-def admin_self_recharge(message):
-  if message.from_user.id != ADMIN_ID:
-    return
-
-  args = message.text.split(maxsplit=1)
-  if len(args) < 2:
-    bot.reply_to(
-        message,
-        "⚠️ اكتب المبلغ بعد الأمر مباشرة. مثال:\n`/mybalance 100`",
-        parse_mode="Markdown",
-    )
-    return
-
-  try:
-    amount = float(args[1].strip())
-    if amount <= 0:
-      raise ValueError
-  except ValueError:
-    bot.reply_to(
-        message,
-        "⚠️ يرجى كتابة رقم صحيح أكبر من الصفر. مثال:\n`/mybalance 50`",
-        parse_mode="Markdown",
-    )
-    return
-
-  chat_id = message.chat.id
-  current_bal = user_balances.get(chat_id, 0.0)
-  new_bal = current_bal + amount
-  user_balances[chat_id] = new_bal
-  save_balance(chat_id, new_bal)
-
-  bot.reply_to(
-      message,
-      f"✅ **تم شحن رصيدك الشخصي بنجاح!**\n"
-      f"➕ المبلغ المضاف: `{amount:.2f}$`\n"
-      f"💰 رصيدك الحالي: `{new_bal:.2f}$`",
-      parse_mode="Markdown",
-  )
 
 
 @bot.message_handler(commands=["broadcast"])
@@ -1606,4 +1565,27 @@ def handle_all_messages(message):
       )
 
       try:
-       
+        bot.send_photo(
+            ADMIN_ID,
+            file_id,
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=get_admin_action_menu(user_id),
+        )
+      except Exception as e:
+        print(f"خطأ في إرسال الصورة للآدمن: {e}")
+    else:
+      bot.reply_to(
+          message,
+          "📸 شكراً لإرسال الصورة. للشحن، يرجى الدخول إلى (شحن البوت) ثم اختيار"
+          " طريقة الدفع المناسبة.",
+      )
+
+
+# ==================== تشغيل البوت ====================
+if __name__ == "__main__":
+  print(
+      "تم تشغيل البوت بنجاح (الكود رقم 39 - إضافة أمر الإرسال الجماعي"
+      " /broadcast للأدمن)..."
+  )
+  bot.infinity_polling(timeout=60, long_polling_timeout=60)
