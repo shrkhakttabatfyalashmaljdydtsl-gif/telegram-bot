@@ -1348,4 +1348,61 @@ def handle_all_messages(message):
         bot.send_photo(
             ADMIN_ID,
             message.photo[-1].file_id,
-            caption=admin_
+            caption=admin_support_notification,
+            parse_mode="Markdown",
+            reply_markup=get_admin_support_action_menu(chat_id),
+        )
+      else:
+        bot.send_message(
+            ADMIN_ID,
+            admin_support_notification,
+            parse_mode="Markdown",
+            reply_markup=get_admin_support_action_menu(chat_id),
+        )
+    except Exception as e:
+      print(f"خطأ في إرسال رسالة الدعم للأدمن: {e}")
+    return
+
+  # 5. معالجة إيصالات الشحن
+  if message.content_type == "photo":
+    if user_waiting_for_receipt.get(chat_id, False):
+      bot.reply_to(
+          message,
+          "✅ **تم استلام لقطة الشاشة (Screenshot) بنجاح!**\nتم إرسالها إلى"
+          " الإدارة للمراجعة وتأكيد الشحن في حسابك قريباً.",
+          parse_mode="Markdown",
+      )
+      user_waiting_for_receipt[chat_id] = False
+
+      file_id = message.photo[-1].file_id
+      caption = (
+          f"📥 **طلب شحن جديد من المستخدم:** {user_name}\n🆔 المعرف: `{user_id}`"
+          f"\n\nيرجى مراجعة إيصال الدفع بالأعلى، ثم الضغط على (تأكيد الشحن) وكتابة"
+          " المبلغ:"
+      )
+
+      try:
+        bot.send_photo(
+            ADMIN_ID,
+            file_id,
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=get_admin_action_menu(user_id),
+        )
+      except Exception as e:
+        print(f"خطأ في إرسال الصورة للآدمن: {e}")
+    else:
+      bot.reply_to(
+          message,
+          "📸 شكراً لإرسال الصورة. للشحن، يرجى الدخول إلى (شحن البوت) ثم اختيار"
+          " طريقة الدفع المناسبة.",
+      )
+
+
+# ==================== تشغيل البوت ====================
+if __name__ == "__main__":
+  print(
+      "تم تشغيل البوت بنجاح (الكود رقم 33 - فصل زر فتح الحساب عن زر تأكيد"
+      " الهدايا بعد الاختيار)..."
+  )
+  bot.infinity_polling(timeout=60, long_polling_timeout=60)
