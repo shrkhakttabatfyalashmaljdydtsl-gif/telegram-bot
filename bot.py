@@ -2,7 +2,7 @@ import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (28) ====================
+# ==================== الكود رقم (29) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -17,10 +17,11 @@ admin_waiting_for_amount = {}
 user_balances = {}  # يحفظ أرصدة المستخدمين
 user_waiting_for_ad_details = {}
 user_temp_ad_data = {}
-user_waiting_for_support_message = {}  # لتتبع رسائل التواصل والدعم
-admin_active_chat = {}  # لحفظ حالة الدردشة المباشرة بين الأدمن والمستخدمين
+user_waiting_for_support_message = {}  # لتتبع بدء التواصل لأول مرة
+admin_active_chat = {}  # يحفظ معرف المستخدم الذي يدردش معه الأدمن حالياً (مفتاحها ID الأدمن والقيمة ID المستخدم)
+user_active_admin = {}  # يحفظ حالة أن المستخدم في دردشة نشطة مع الأدمن
 
-# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)
+# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)[span_0](start_span)[span_0](end_span)
 ratings_data = {"positive": 53, "negative": 11, "voted_users": set()}
 
 # قائمة المجلدات الديناميكية مع روابطها
@@ -309,12 +310,12 @@ def add_folder_command(message):
   }
 
   bot.reply_to(
-      message,
-      f"✅ **تم بنجاح إضافة المجلد الجديد:** `{folder_title}`\n"
-      f"لتحديد رابطه، استخدم الأمر:\n`/setfolderlink {new_key}"
-      " رابط_المجلد`",
-      parse_mode="Markdown",
-  )
+        message,
+        f"✅ **تم بنجاح إضافة المجلد الجديد:** `{folder_title}`\n"
+        f"لتحديد رابطه، استخدم الأمر:\n`/setfolderlink {new_key}"
+        " رابط_المجلد`",
+        parse_mode="Markdown",
+    )
 
 
 @bot.message_handler(commands=["setfolderlink"])
@@ -592,26 +593,32 @@ def callback_inline(call):
   elif call.data.startswith("support_chat_"):
     target_user_id = int(call.data.split("_")[2])
     admin_active_chat[ADMIN_ID] = target_user_id
+    user_active_admin[target_user_id] = True  # تفعيل حالة الدردشة المباشرة للمستخدم
 
     bot.answer_callback_query(call.id, "✅ تم فتح جلسة الدردشة مع المستخدم.")
-    bot.edit_message_caption(
-        call.message.caption
-        + "\n\n🟢 **[تم بدء الدردشة المباشرة مع هذا المستخدم من قبلك]**",
-        chat_id,
-        message_id,
-        parse_mode="Markdown",
-    )
+    try:
+      bot.edit_message_caption(
+          call.message.caption
+          + "\n\n🟢 **[تم بدء الدردشة المباشرة مع هذا المستخدم من قبلك]**",
+          chat_id,
+          message_id,
+          parse_mode="Markdown",
+      )
+    except Exception:
+      pass
+
     bot.send_message(
         ADMIN_ID,
         f"💬 **أنت الآن في محادثة مباشرة مع المستخدم (ID: `{target_user_id}`)**\n"
-        "أي رسالة ترسلها هنا الآن سيتم توجيهها مباشرة إليه حتى تقوم بإنهاء المحادثة أو إرسال رد.",
+        "أي رسالة ترسلها هنا الآن سيتم توجيهها مباشرة إليه.\n"
+        "لإنهاء المحادثة وإغلاق الدردشة مع هذا الشخص، أرسل الأمر: `/endchat`",
         parse_mode="Markdown",
     )
 
     try:
       bot.send_message(
           target_user_id,
-          "🔔 **تنبيه:** الأدمن متواجد الآن في خدمة العملاء وجاهز للرد على استفسارك مباشرة! يمكنك إكمال المراسلة.",
+          "🔔 **تنبيه:** الأدمن متواجد الآن في خدمة العملاء وجاهز للرد على استفسارك مباشرة! يمكنك إكمال المراسلة في الشات.",
           parse_mode="Markdown",
       )
     except Exception as e:
@@ -620,12 +627,15 @@ def callback_inline(call):
   elif call.data.startswith("support_ignore_"):
     target_user_id = int(call.data.split("_")[2])
     bot.answer_callback_query(call.id, "❌ تم تجاهل الطلب.")
-    bot.edit_message_caption(
-        call.message.caption + "\n\n🔴 **[تم تجاهل هذه الرسالة]**",
-        chat_id,
-        message_id,
-        parse_mode="Markdown",
-    )
+    try:
+      bot.edit_message_caption(
+          call.message.caption + "\n\n🔴 **[تم تجاهل هذه الرسالة]**",
+          chat_id,
+          message_id,
+          parse_mode="Markdown",
+      )
+    except Exception:
+      pass
 
   elif call.data == "pay_crypto":
     user_waiting_for_receipt[chat_id] = False
@@ -1017,97 +1027,136 @@ def handle_all_messages(message):
       message.from_user.first_name if message.from_user.first_name else "مستخدم"
   )
 
-  # إذا كان المرسل هو الأدمن وفي وضع الدردشة النشطة مع مستخدم معين
-  if user_id == ADMIN_ID and ADMIN_ID in admin_active_chat:
-    target_user_id = admin_active_chat[ADMIN_ID]
+  # 1. إذا كان المرسل هو الأدمن
+  if user_id == ADMIN_ID:
+    # أمر لإنهاء المحادثة الحالية
     if message.text and message.text == "/endchat":
-      del admin_active_chat[ADMIN_ID]
-      bot.reply_to(message, "🔒 تم إنهاء جلسة الدردشة المباشرة.")
-      bot.send_message(
-          target_user_id,
-          "🔒 تم إغلاق جلسة الدعم الفني الحالية. شكراً لتواصلك معنا!",
+      if ADMIN_ID in admin_active_chat:
+        target_user_id = admin_active_chat[ADMIN_ID]
+        user_active_admin.pop(target_user_id, None)
+        admin_active_chat.pop(ADMIN_ID, None)
+        bot.reply_to(
+            message,
+            "🔒 تم إنهاء جلسة الدردشة المباشرة مع هذا المستخدم بنجاح.",
+        )
+        bot.send_message(
+            target_user_id,
+            "🔒 تم إغلاق جلسة الدعم الفني الحالية. شكراً لتواصلك معنا!",
+        )
+      else:
+        bot.reply_to(message, "⚠️ لا توجد محادثة نشطة حالياً لإنهاؤها.")
+      return
+
+    # إذا كان الأدمن يكتب رداً ومفتوحة معززاً دردشة نشطة مع مستخدم
+    if ADMIN_ID in admin_active_chat:
+      target_user_id = admin_active_chat[ADMIN_ID]
+      try:
+        if message.content_type == "text":
+          bot.send_message(
+              target_user_id,
+              f"💬 **رد الإدارة:**\n{message.text}",
+              parse_mode="Markdown",
+          )
+        elif message.content_type == "photo":
+          bot.send_photo(
+              target_user_id,
+              message.photo[-1].file_id,
+              caption=(
+                  f"💬 **رد الإدارة:**\n{message.caption}"
+                  if message.caption
+                  else "💬 رد من الإدارة"
+              ),
+          )
+        bot.reply_to(message, "✅ تم إرسال الرد للمستخدم بنجاح.")
+      except Exception as e:
+        bot.reply_to(
+            message, f"❌ فشل إرسال الرد للمستخدم (ربما قام بحظر البوت): {e}"
+        )
+      return
+
+    # إذا أرسل الأدمن صورة إعلان عامة (ليست إيصالاً ولا تفاصيل)
+    if (
+        message.content_type == "photo"
+        and not user_waiting_for_receipt.get(chat_id, False)
+        and not user_waiting_for_ad_details.get(chat_id, False)
+    ):
+      current_ad_photo = message.photo[-1].file_id
+      bot.reply_to(
+          message,
+          "✅ **تم تحديث وحفظ صورة الإعلان بنجاح!**",
+          parse_mode="Markdown",
       )
       return
 
-    try:
-      # إرسال رسالة الأدمن للمستخدم
-      if message.content_type == "text":
-        bot.send_message(
-            target_user_id,
-            f"💬 **رد الإدارة:**\n{message.text}",
+    if user_id in admin_waiting_for_amount:
+      target_user_id = admin_waiting_for_amount[user_id]
+      amount_text = message.text.strip()
+      if amount_text.isdigit():
+        amount = float(amount_text)
+        current_bal = user_balances.get(target_user_id, 0.0)
+        user_balances[target_user_id] = current_bal + amount
+        bot.reply_to(
+            message,
+            f"✅ **تم بنجاح إضافة مبلغ `{amount}` إلى حساب المستخدم (ID:"
+            f" `{target_user_id}`)!**\nرصيده الجديد أصبح: `{user_balances[target_user_id]}`",
             parse_mode="Markdown",
         )
-      elif message.content_type == "photo":
-        bot.send_photo(
-            target_user_id,
-            message.photo[-1].file_id,
-            caption=(
-                f"💬 **رد الإدارة:**\n{message.caption}"
-                if message.caption
-                else "💬 رد من الإدارة"
-            ),
+        try:
+          bot.send_message(
+              target_user_id,
+              f"🎉 **مبروك! تم تأكيد الشحن بنجاح من قبل الإدارة.**\n💰 تمت إضافة"
+              f" رصيد وقدره: `{amount}` إلى حسابك في البوت.",
+              parse_mode="Markdown",
+          )
+        except Exception as e:
+          print(f"لم يتم إرسال الرسالة للمستخدم: {e}")
+        del admin_waiting_for_amount[user_id]
+        return
+      else:
+        bot.reply_to(
+            message,
+            "⚠️ يرجى إرسال رقم صحيح فقط للمبلغ (مثال: 50 أو 100). حاول مرة أخرى.",
         )
-      bot.reply_to(message, "✅ تم إرسال الرد للمستخدم بنجاح.")
-    except Exception as e:
-      bot.reply_to(
-          message, f"❌ فشل إرسال الرد للمستخدم (ربما قام بحظر البوت): {e}"
-      )
+        return
     return
 
-  # إذا أرسل المستخدم رسالة دعم جديدة
-  if user_waiting_for_support_message.get(chat_id, False):
-    user_waiting_for_support_message[chat_id] = False
-    support_text = message.text if message.text else "محتوى غير نصي"
-
-    bot.reply_to(
-        message,
-        "✅ **تم ارسال رسالتك إلى فريق الدعم الفني والإدارة بنجاح!**\n"
-        "شكراً لتواصلك معنا، سيتم الاطلاع على رسالتك والرد عليك قريباً جداً عند تواجد الإدارة. طاب يومك! 🙏",
-        parse_mode="Markdown",
-        reply_markup=get_back_to_main_menu_only(),
+  # 2. إذا كان المرسل مستخدماً عادياً وهو في دردشة نشطة مع الأدمن
+  if user_active_admin.get(user_id, False):
+    support_text = (
+        message.text
+        if message.text
+        else (message.caption if message.caption else "محتوى مرفق")
     )
-
-    admin_support_notification = (
-        f"📩 **رسالة جديدة من قسم الدعم والتواصل:**\n\n"
-        f"👤 اسم المستخدم: {user_name}\n"
-        f"🆔 معرف المستخدم (ID): `{chat_id}`\n\n"
-        f"💬 **محتوى الرسالة:**\n{support_text}"
+    # إرسال رسالة المستخدم مباشرة إلى شات الأدمن
+    forward_caption = (
+        f"💬 **رد جديد من المستخدم:** {user_name}\n"
+        f"🆔 المعرف: `{user_id}`\n\n"
+        f"محتوى الرسالة:\n{support_text}"
     )
-
     try:
-      bot.send_message(
-          ADMIN_ID,
-          admin_support_notification,
-          parse_mode="Markdown",
-          reply_markup=get_admin_support_action_menu(chat_id),
-      )
+      if message.content_type == "photo":
+        bot.send_photo(
+            ADMIN_ID,
+            message.photo[-1].file_id,
+            caption=forward_caption,
+            parse_mode="Markdown",
+        )
+      else:
+        bot.send_message(
+            ADMIN_ID,
+            forward_caption,
+            parse_mode="Markdown",
+        )
+      bot.reply_to(message, "✅ تم إرسال رسالتك للأدمن.")
     except Exception as e:
-      print(f"خطأ في إرسال رسالة الدعم للأدمن: {e}")
+      print(f"خطأ في توجيه رسالة المحادثة للأدمن: {e}")
     return
 
-  # إذا كان المستخدم في محادثة نشطة مع الأدمن ويرسل ردوداً إضافية
-  # (يمكن للمستخدم الرد على الأدمن مباشرة إذا كانت جلسته مفتوحة أو إرسال استفسار جديد عبر الزر)
-
-  if (
-      user_id == ADMIN_ID
-      and message.content_type == "photo"
-      and not user_waiting_for_receipt.get(chat_id, False)
-      and not user_waiting_for_ad_details.get(chat_id, False)
-  ):
-    current_ad_photo = message.photo[-1].file_id
-    bot.reply_to(
-        message,
-        "✅ **تم تحديث وحفظ صورة الإعلان بنجاح!**",
-        parse_Mode="Markdown",
-    )
-    return
-
+  # 3. إذا كان المستخدم يكتب تفاصيل الإعلان
   if user_waiting_for_ad_details.get(chat_id, False):
     user_waiting_for_ad_details[chat_id] = False
-
     if chat_id not in user_temp_ad_data:
       user_temp_ad_data[chat_id] = {}
-
     if message.content_type == "photo":
       user_temp_ad_data[chat_id]["photo_id"] = message.photo[-1].file_id
       user_temp_ad_data[chat_id][
@@ -1127,41 +1176,51 @@ def handle_all_messages(message):
     )
     return
 
-  if user_id == ADMIN_ID and user_id in admin_waiting_for_amount:
-    target_user_id = admin_waiting_for_amount[user_id]
-    amount_text = message.text.strip()
+  # 4. إذا كان المستخدم يرسل رسالة الدعم الأولى بعد الضغط على زر التواصل
+  if user_waiting_for_support_message.get(chat_id, False):
+    user_waiting_for_support_message[chat_id] = False
+    support_text = (
+        message.text
+        if message.text
+        else (message.caption if message.caption else "محتوى غير نصي")
+    )
 
-    if amount_text.isdigit():
-      amount = float(amount_text)
-      current_bal = user_balances.get(target_user_id, 0.0)
-      user_balances[target_user_id] = current_bal + amount
+    bot.reply_to(
+        message,
+        "✅ **تم ارسال رسالتك إلى فريق الدعم الفني والإدارة بنجاح!**\n"
+        "شكراً لتواصلك معنا، سيتم الاطلاع على رسالتك والرد عليك قريباً جداً عند تواجد الإدارة. طاب يومك! 🙏",
+        parse_mode="Markdown",
+        reply_markup=get_back_to_main_menu_only(),
+    )
 
-      bot.reply_to(
-          message,
-          f"✅ **تم بنجاح إضافة مبلغ `{amount}` إلى حساب المستخدم (ID:"
-          f" `{target_user_id}`)!**\nرصيده الجديد أصبح: `{user_balances[target_user_id]}`",
-          parse_mode="Markdown",
-      )
+    admin_support_notification = (
+        f"📩 **رسالة جديدة من قسم الدعم والتواصل:**\n\n"
+        f"👤 اسم المستخدم: {user_name}\n"
+        f"🆔 معرف المستخدم (ID): `{chat_id}`\n\n"
+        f"💬 **محتوى الرسالة:**\n{support_text}"
+    )
 
-      try:
-        bot.send_message(
-            target_user_id,
-            f"🎉 **مبروك! تم تأكيد الشحن بنجاح من قبل الإدارة.**\n💰 تمت إضافة"
-            f" رصيد وقدره: `{amount}` إلى حسابك في البوت.",
+    try:
+      if message.content_type == "photo":
+        bot.send_photo(
+            ADMIN_ID,
+            message.photo[-1].file_id,
+            caption=admin_support_notification,
             parse_mode="Markdown",
+            reply_markup=get_admin_support_action_menu(chat_id),
         )
-      except Exception as e:
-        print(f"لم يتم إرسال الرسالة للمستخدم: {e}")
+      else:
+        bot.send_message(
+            ADMIN_ID,
+            admin_support_notification,
+            parse_mode="Markdown",
+            reply_markup=get_admin_support_action_menu(chat_id),
+        )
+    except Exception as e:
+      print(f"خطأ في إرسال رسالة الدعم للأدمن: {e}")
+    return
 
-      del admin_waiting_for_amount[user_id]
-      return
-    else:
-      bot.reply_to(
-          message,
-          "⚠️ يرجى إرسال رقم صحيح فقط للمبلغ (مثال: 50 أو 100). حاول مرة أخرى.",
-      )
-      return
-
+  # 5. معالجة إيصالات الشحن
   if message.content_type == "photo":
     if user_waiting_for_receipt.get(chat_id, False):
       bot.reply_to(
@@ -1200,7 +1259,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
   print(
-      "تم تشغيل البوت بنجاح (الكود رقم 28 - نظام محادثة الدعم الفني الفوري"
-      " للإدارة)..."
+      "تم تشغيل البوت بنجاح (الكود رقم 29 - ضبط نظام الشات وتوجيه رسائل"
+      " المستخدم المباشرة للإدارة)..."
   )
   bot.infinity_polling(timeout=60, long_polling_timeout=60)
