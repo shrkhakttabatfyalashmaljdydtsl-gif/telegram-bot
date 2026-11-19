@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (35) ====================
+# ==================== الكود رقم (36) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -24,6 +24,24 @@ user_active_admin = {}  # يحفظ حالة أن المستخدم في دردش�
 
 # نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)
 ratings_data = {"positive": 53, "negative": 11, "voted_users": set()}
+
+
+def get_display_name(user):
+  if not user:
+    return "عزيزي"
+  first = (user.first_name or "").strip()
+  last = (user.last_name or "").strip()
+  full_name = f"{first} {last}".strip()
+  return full_name if full_name else "عزيزي"
+
+
+def build_welcome_text(user):
+  person_name = get_display_name(user)
+  return (
+      f"مرحباً بك يا أخي {person_name} في بوت التمويل الاحترافي 🚀\n\n"
+      "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
+  )
+
 
 # نظام الزيادة التلقائية اليومية للإعلانات المنجزة حسب كل دولة
 ADS_START_DATE = datetime(2026, 11, 19, tzinfo=timezone.utc)
@@ -332,11 +350,7 @@ def send_welcome(message):
   user_waiting_for_receipt[chat_id] = False
   user_waiting_for_ad_details[chat_id] = False
   user_waiting_for_support_message[chat_id] = False
-  text = (
-      "مرحباً بك يا أخي فهد سامي القحطاني مدير جميع المؤسسات الاستثمار في بوت"
-      " التمويل الاحترافي 🚀\n\nيرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام"
-      " المختلفة:"
-  )
+  text = build_welcome_text(message.from_user)
   bot.send_message(chat_id, text, reply_markup=get_main_menu())
 
 
@@ -1009,11 +1023,7 @@ def callback_inline(call):
     user_waiting_for_receipt[chat_id] = False
     user_waiting_for_ad_details[chat_id] = False
     user_waiting_for_support_message[chat_id] = False
-    text = (
-        "مرحباً بك يا أخي فهد سامي القحطاني مدير جميع المؤسسات الاستثمار في بوت"
-        " التمويل الاحترافي 🚀\n\nيرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام"
-        " المختلفة:"
-    )
+    text = build_welcome_text(call.from_user)
     try:
       bot.delete_message(chat_id, message_id)
       bot.send_message(chat_id, text, reply_markup=get_main_menu())
@@ -1295,7 +1305,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
   print(
-      "تم تشغيل البوت بنجاح (الكود رقم 35 - زيادة تلقائية يومية لكل دولة في"
-      " سجل الإعلانات المنجزة)..."
+      "تم تشغيل البوت بنجاح (الكود رقم 36 - الترحيب الديناميكي باسم كل"
+      " مستخدم)..."
   )
   bot.infinity_polling(timeout=60, long_polling_timeout=60)
