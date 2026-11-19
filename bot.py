@@ -5,13 +5,18 @@ from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (40) ====================
+# ==================== الكود رقم (41) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
 
 # الآيدي الخاص بك كإدارة
 ADMIN_ID = 7004113433
+
+# إعداد القناة الإجبارية (يمكن ضبطها من متغيرات البيئة في Railway عبر FORCE_CHANNEL)
+# مثال: "@my_channel" أو "-1001234567890"
+FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "@YourChannelUsername").strip()
+FORCE_CHANNEL_URL = os.getenv("FORCE_CHANNEL_URL", "").strip()
 
 # مسار ملف قاعدة البيانات لحفظ بيانات البوت بشكل دائم
 DB_PATH = os.getenv("DB_PATH", "bot_data.db")
@@ -233,6 +238,67 @@ user_active_admin = {}
 ratings_data = load_ratings()
 
 
+# ==================== دوال الاشتراك الإجباري ====================
+def get_force_channel_target():
+  if not FORCE_CHANNEL:
+    return None
+  if FORCE_CHANNEL.lstrip("-").isdigit():
+    return int(FORCE_CHANNEL)
+  return FORCE_CHANNEL if FORCE_CHANNEL.startswith("@") else f"@{FORCE_CHANNEL}"
+
+
+def get_force_channel_url():
+  if FORCE_CHANNEL_URL:
+    return FORCE_CHANNEL_URL
+  if FORCE_CHANNEL and not FORCE_CHANNEL.lstrip("-").isdigit():
+    clean_username = FORCE_CHANNEL.lstrip("@")
+    return f"https://t.me/{clean_username}"
+  return None
+
+
+def is_user_subscribed(user_id):
+  target = get_force_channel_target()
+  if not target or target == "@YourChannelUsername":
+    return True
+  try:
+    member = bot.get_chat_member(target, user_id)
+    return member.status in ("creator", "administrator", "member", "restricted")
+  except Exception as e:
+    print(f"خطأ في التحقق من الاشتراك الإجباري للمستخدم {user_id}: {e}")
+    return True
+
+
+def build_force_subscribe_menu():
+  keyboard = InlineKeyboardMarkup()
+  channel_url = get_force_channel_url()
+  if channel_url:
+    keyboard.row(
+        InlineKeyboardButton("📢 الاشتراك في القناة الآن", url=channel_url)
+    )
+  keyboard.row(
+      InlineKeyboardButton(
+          "✅ تحققت من الاشتراك", callback_data="check_subscription"
+      )
+  )
+  return keyboard
+
+
+def send_force_subscribe_prompt(chat_id):
+  channel_label = FORCE_CHANNEL if FORCE_CHANNEL else "القناة المطلوبة"
+  msg_text = (
+      "⚠️ **عذراً، يجب الاشتراك في القناة أولاً لاستخدام البوت!**\n\n"
+      f"📢 القناة المطلوبة: `{channel_label}`\n"
+      "1️⃣ اضغط على زر **الاشتراك في القناة الآن**.\n"
+      "2️⃣ بعد الانضمام، اضغط على زر **تحققت من الاشتراك**."
+  )
+  bot.send_message(
+      chat_id,
+      msg_text,
+      parse_mode="Markdown",
+      reply_markup=build_force_subscribe_menu(),
+  )
+
+
 def get_display_name(user):
   if not user:
     return "عزيزي"
@@ -248,6 +314,22 @@ def build_welcome_text(user):
       f"مرحباً بك يا أخي {person_name} في بوت التمويل الاحترافي 🚀\n\n"
       "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
   )
+
+
+def open_main_menu_for_user(user, chat_id, message_id=None, edit=False):
+  user_waiting_for_receipt[chat_id] = False
+  user_waiting_for_ad_details[chat_id] = False
+  user_waiting_for_support_message[chat_id] = False
+  text = build_welcome_text(user)
+  if edit and message_id:
+    try:
+      bot.edit_message_text(
+          text, chat_id, message_id, reply_markup=get_main_menu()
+      )
+      return
+    except Exception:
+      pass
+  bot.send_message(chat_id, text, reply_markup=get_main_menu())
 
 
 # نظام الزيادة التلقائية اليومية للإعلانات المنجزة حسب كل دولة
@@ -541,12 +623,14 @@ def get_admin_support_action_menu(user_id):
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
   chat_id = message.chat.id
-  register_user(message.from_user.id, chat_id)
-  user_waiting_for_receipt[chat_id] = False
-  user_waiting_for_ad_details[chat_id] = False
-  user_waiting_for_support_message[chat_id] = False
-  text = build_welcome_text(message.from_user)
-  bot.send_message(chat_id, text, reply_markup=get_main_menu())
+  user_id = message.from_user.id
+  register_user(user_id, chat_id)
+
+  if user_id != ADMIN_ID and not is_user_subscribed(user_id):
+    send_force_subscribe_prompt(chat_id)
+    return
+
+  open_main_menu_for_user(message.from_user, chat_id)
 
 
 @bot.message_handler(commands=["mybalance"])
@@ -678,6 +762,24 @@ def callback_inline(call):
   message_id = call.message.message_id
   user_id = call.from_user.id
   register_user(user_id, chat_id)
+
+  if call.data == "check_subscription":
+    if is_user_subscribed(user_id):
+      bot.answer_callback_query(
+          call.id, "✅ تم التحقق من اشتراكك في القناة بنجاح!"
+      )
+      try:
+        bot.delete_message(chat_id, message_id)
+      except Exception:
+        pass
+      open_main_menu_for_user(call.from_user, chat_id)
+    else:
+      bot.answer_callback_query(
+          call.id,
+          "❌ لم يتم العثور على اشتراكك بعد. اشترك في القناة ثم اضغط تحقق.",
+          show_alert=True,
+      )
+    return
 
   if call.data == "recharge_bot":
     user_waiting_for_receipt[chat_id] = False
@@ -1282,17 +1384,7 @@ def callback_inline(call):
       )
 
   elif call.data == "back_to_main":
-    user_waiting_for_receipt[chat_id] = False
-    user_waiting_for_ad_details[chat_id] = False
-    user_waiting_for_support_message[chat_id] = False
-    text = build_welcome_text(call.from_user)
-    try:
-      bot.delete_message(chat_id, message_id)
-      bot.send_message(chat_id, text, reply_markup=get_main_menu())
-    except Exception:
-      bot.edit_message_text(
-          text, chat_id, message_id, reply_markup=get_main_menu()
-      )
+    open_main_menu_for_user(call.from_user, chat_id, message_id=message_id, edit=True)
 
 
 # ==================== معالجة الدفع بالنجوم ====================
@@ -1524,109 +1616,4 @@ def handle_all_messages(message):
     if chat_id not in user_temp_ad_data:
       user_temp_ad_data[chat_id] = {}
     if message.content_type == "photo":
-      user_temp_ad_data[chat_id]["photo_id"] = message.photo[-1].file_id
-      user_temp_ad_data[chat_id][
-          "caption"
-      ] = message.caption if message.caption else "بدون نص"
-    else:
-      user_temp_ad_data[chat_id]["photo_id"] = None
-      user_temp_ad_data[chat_id]["caption"] = message.text
-
-    bot.reply_to(
-        message,
-        "📥 **تم استلام تفاصيل إعلانك بنجاح!**\n\n"
-        "الرجاء اختيار المجلد الذي تود إعلان قناتك في جميع قنواته:\n"
-        "اختر من هنا المجلد المناسب لك 👇🏻",
-        parse_mode="Markdown",
-        reply_markup=get_folders_selection_menu(),
-    )
-    return
-
-  # 4. إذا كان المستخدم يرسل رسالة الدعم الأولى
-  if user_waiting_for_support_message.get(chat_id, False):
-    user_waiting_for_support_message[chat_id] = False
-    support_text = (
-        message.text
-        if message.text
-        else (message.caption if message.caption else "محتوى غير نصي")
-    )
-
-    bot.reply_to(
-        message,
-        "✅ **تم ارسال رسالتك إلى فريق الدعم الفني والإدارة بنجاح!**\n"
-        "شكراً لتواصلك معنا، سيتم الاطلاع على رسالتك والرد عليك قريباً جداً عند"
-        " تواجد الإدارة. طاب يومك! 🙏",
-        parse_mode="Markdown",
-        reply_markup=get_back_to_main_menu_only(),
-    )
-
-    admin_support_notification = (
-        f"📩 **رسالة جديدة من قسم الدعم والتواصل:**\n\n"
-        f"👤 اسم المستخدم: {user_name}\n"
-        f"🆔 معرف المستخدم (ID): `{chat_id}`\n\n"
-        f"💬 **محتوى الرسالة:**\n{support_text}"
-    )
-
-    try:
-      if message.content_type == "photo":
-        bot.send_photo(
-            ADMIN_ID,
-            message.photo[-1].file_id,
-            caption=admin_support_notification,
-            parse_mode="Markdown",
-            reply_markup=get_admin_support_action_menu(chat_id),
-        )
-      else:
-        bot.send_message(
-            ADMIN_ID,
-            admin_support_notification,
-            parse_mode="Markdown",
-            reply_markup=get_admin_support_action_menu(chat_id),
-        )
-    except Exception as e:
-      print(f"خطأ في إرسال رسالة الدعم للأدمن: {e}")
-    return
-
-  # 5. معالجة إيصالات الشحن
-  if message.content_type == "photo":
-    if user_waiting_for_receipt.get(chat_id, False):
-      bot.reply_to(
-          message,
-          "✅ **تم استلام لقطة الشاشة (Screenshot) بنجاح!**\nتم إرسالها إلى"
-          " الإدارة للمراجعة وتأكيد الشحن في حسابك قريباً.",
-          parse_mode="Markdown",
-      )
-      user_waiting_for_receipt[chat_id] = False
-
-      file_id = message.photo[-1].file_id
-      caption = (
-          f"📥 **طلب شحن جديد من المستخدم:** {user_name}\n🆔 المعرف: `{user_id}`"
-          f"\n\nيرجى مراجعة إيصال الدفع بالأعلى، ثم الضغط على (تأكيد الشحن) وكتابة"
-          " المبلغ:"
-      )
-
-      try:
-        bot.send_photo(
-            ADMIN_ID,
-            file_id,
-            caption=caption,
-            parse_mode="Markdown",
-            reply_markup=get_admin_action_menu(user_id),
-        )
-      except Exception as e:
-        print(f"خطأ في إرسال الصورة للآدمن: {e}")
-    else:
-      bot.reply_to(
-          message,
-          "📸 شكراً لإرسال الصورة. للشحن، يرجى الدخول إلى (شحن البوت) ثم اختيار"
-          " طريقة الدفع المناسبة.",
-      )
-
-
-# ==================== تشغيل البوت ====================
-if __name__ == "__main__":
-  print(
-      "تم تشغيل البوت بنجاح (الكود رقم 40 - إضافة أمر /mybalance لشحن رصيد"
-      " الأدمن الشخصي)..."
-  )
-  bot.infinity_polling(timeout=60, long_polling_timeout=60)
+      user_temp_ad_data[chat_id]["photo_id"] = mess
