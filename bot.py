@@ -2,16 +2,13 @@ import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (32) ====================
+# ==================== الكود رقم (33) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
 
 # الآيدي الخاص بك كإدارة
 ADMIN_ID = 7004113433
-
-# رابط فتح الملف الشخصي / الحساب المخصص لاستقبال الهدايا (يمكنك تغييره ليوزرك أو رابطك)
-GIFT_PROFILE_URL = f"https://t.me/+{ADMIN_ID}"
 
 # المتغيرات الأساسية
 current_ad_photo = None
@@ -122,13 +119,21 @@ def get_gifts_menu():
   return keyboard
 
 
-def get_gift_direct_confirm_menu(gift_key, user_id):
+def get_gift_profile_only_menu(user_id):
   keyboard = InlineKeyboardMarkup()
   keyboard.row(
       InlineKeyboardButton(
           "👤 فتح الملف الشخصي / الحساب", url=f"tg://user?id={user_id}"
       )
   )
+  keyboard.row(
+      InlineKeyboardButton("🔙 رجوع لقائمة الهدايا", callback_data="pay_gifts")
+  )
+  return keyboard
+
+
+def get_gift_after_selection_confirm_menu(gift_key):
+  keyboard = InlineKeyboardMarkup()
   keyboard.row(
       InlineKeyboardButton(
           "تأكيد إرسال الهدية ✅", callback_data=f"confirm_gift_{gift_key}"
@@ -460,30 +465,26 @@ def callback_inline(call):
   elif call.data.startswith("gift_pkg_"):
     pkg_val = call.data.split("_")[2]
     gifts_info = {
-        "450": (
-            "🎁 **هدية 450 نجمة = 9.00 دولار**\n\n"
-            "تم توجيهك لملفك الشخصي/الحساب لإتمام اختيار الهدية، وبعد الإرسال اضغط على **تأكيد إرسال الهدية ✅**:"
-        ),
-        "1000": (
-            "🎁 **هدية 1,000 نجمة = 20.00 دولار**\n\n"
-            "تم توجيهك لملفك الشخصي/الحساب لإتمام اختيار الهدية، وبعد الإرسال اضغط على **تأكيد إرسال الهدية ✅**:"
-        ),
-        "2500": (
-            "🎁 **هدية 2,500 نجمة = 50.00 دولار**\n\n"
-            "تم توجيهك لملفك الشخصي/الحساب لإتمام اختيار الهدية، وبعد الإرسال اضغط على **تأكيد إرسال الهدية ✅**:"
-        ),
-        "5000": (
-            "🎁 **هدية 5,000 نجمة = 100.00 دولار**\n\n"
-            "تم توجيهك لملفك الشخصي/الحساب لإتمام اختيار الهدية، وبعد الإرسال اضغط على **تأكيد إرسال الهدية ✅**:"
-        ),
+        "450": "🎁 **هدية 450 نجمة = 9.00 دولار**",
+        "1000": "🎁 **هدية 1,000 نجمة = 20.00 دولار**",
+        "2500": "🎁 **هدية 2,500 نجمة = 50.00 دولار**",
+        "5000": "🎁 **هدية 5,000 نجمة = 100.00 دولار**",
     }
     if pkg_val in gifts_info:
       bot.edit_message_text(
-          gifts_info[pkg_val],
+          f"{gifts_info[pkg_val]}\n\n"
+          "تم توجيهك لملفك الشخصي/الحساب لاختيار الهدية من هناك:",
           chat_id,
           message_id,
           parse_mode="Markdown",
-          reply_markup=get_gift_direct_confirm_menu(pkg_val, user_id),
+          reply_markup=get_gift_profile_only_menu(user_id),
+      )
+
+      bot.send_message(
+          chat_id,
+          "👇 بعد اختيار الهدية من ملفك الشخصي، اضغط على زر التأكيد أدناه:",
+          parse_mode="Markdown",
+          reply_markup=get_gift_after_selection_confirm_menu(pkg_val),
       )
 
   elif call.data.startswith("confirm_gift_"):
@@ -1347,60 +1348,4 @@ def handle_all_messages(message):
         bot.send_photo(
             ADMIN_ID,
             message.photo[-1].file_id,
-            caption=admin_support_notification,
-            parse_mode="Markdown",
-            reply_markup=get_admin_support_action_menu(chat_id),
-        )
-      else:
-        bot.send_message(
-            ADMIN_ID,
-            admin_support_notification,
-            parse_mode="Markdown",
-            reply_markup=get_admin_support_action_menu(chat_id),
-        )
-    except Exception as e:
-      print(f"خطأ في إرسال رسالة الدعم للأدمن: {e}")
-    return
-
-  # 5. معالجة إيصالات الشحن
-  if message.content_type == "photo":
-    if user_waiting_for_receipt.get(chat_id, False):
-      bot.reply_to(
-          message,
-          "✅ **تم استلام لقطة الشاشة (Screenshot) بنجاح!**\nتم إرسالها إلى"
-          " الإدارة للمراجعة وتأكيد الشحن في حسابك قريباً.",
-          parse_mode="Markdown",
-      )
-      user_waiting_for_receipt[chat_id] = False
-
-      file_id = message.photo[-1].file_id
-      caption = (
-          f"📥 **طلب شحن جديد من المستخدم:** {user_name}\n🆔 المعرف: `{user_id}`"
-          f"\n\nيرجى مراجعة إيصال الدفع بالأعلى، ثم الضغط على (تأكيد الشحن) وكتابة"
-          " المبلغ:"
-      )
-
-      try:
-        bot.send_photo(
-            ADMIN_ID,
-            file_id,
-            caption=caption,
-            parse_mode="Markdown",
-            reply_markup=get_admin_action_menu(user_id),
-        )
-      except Exception as e:
-        print(f"خطأ في إرسال الصورة للآدمن: {e}")
-    else:
-      bot.reply_to(
-          message,
-          "📸 شكراً لإرسال الصورة. للشحن، يرجى الدخول إلى (شحن البوت) ثم اختيار"
-          " طريقة الدفع المناسبة.",
-      )
-
-
-# ==================== تشغيل البوت ====================
-if __name__ == "__main__":
-  print(
-      "تم تشغيل البوت بنجاح (الكود رقم 32 - مسار الهدايا السريع والتأكيد الفوري)..."
-  )
-  bot.infinity_polling(timeout=60, long_polling_timeout=60)
+            caption=admin_
