@@ -2,7 +2,7 @@ import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (27) ====================
+# ==================== الكود رقم (28) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -18,8 +18,9 @@ user_balances = {}  # يحفظ أرصدة المستخدمين
 user_waiting_for_ad_details = {}
 user_temp_ad_data = {}
 user_waiting_for_support_message = {}  # لتتبع رسائل التواصل والدعم
+admin_active_chat = {}  # لحفظ حالة الدردشة المباشرة بين الأدمن والمستخدمين
 
-# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)[span_0](start_span)[span_0](end_span)
+# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)
 ratings_data = {"positive": 53, "negative": 11, "voted_users": set()}
 
 # قائمة المجلدات الديناميكية مع روابطها
@@ -253,6 +254,19 @@ def get_admin_action_menu(user_id):
       ),
       InlineKeyboardButton(
           "تأكيد الشحن ✅", callback_data=f"admin_approve_{user_id}"
+      ),
+  )
+  return keyboard
+
+
+def get_admin_support_action_menu(user_id):
+  keyboard = InlineKeyboardMarkup()
+  keyboard.row(
+      InlineKeyboardButton(
+          "💬 دردشة مع الشخص", callback_data=f"support_chat_{user_id}"
+      ),
+      InlineKeyboardButton(
+          "❌ تجاهل", callback_data=f"support_ignore_{user_id}"
       ),
   )
   return keyboard
@@ -573,6 +587,44 @@ def callback_inline(call):
         message_id,
         parse_mode="Markdown",
         reply_markup=get_back_to_main_menu_only(),
+    )
+
+  elif call.data.startswith("support_chat_"):
+    target_user_id = int(call.data.split("_")[2])
+    admin_active_chat[ADMIN_ID] = target_user_id
+
+    bot.answer_callback_query(call.id, "✅ تم فتح جلسة الدردشة مع المستخدم.")
+    bot.edit_message_caption(
+        call.message.caption
+        + "\n\n🟢 **[تم بدء الدردشة المباشرة مع هذا المستخدم من قبلك]**",
+        chat_id,
+        message_id,
+        parse_mode="Markdown",
+    )
+    bot.send_message(
+        ADMIN_ID,
+        f"💬 **أنت الآن في محادثة مباشرة مع المستخدم (ID: `{target_user_id}`)**\n"
+        "أي رسالة ترسلها هنا الآن سيتم توجيهها مباشرة إليه حتى تقوم بإنهاء المحادثة أو إرسال رد.",
+        parse_mode="Markdown",
+    )
+
+    try:
+      bot.send_message(
+          target_user_id,
+          "🔔 **تنبيه:** الأدمن متواجد الآن في خدمة العملاء وجاهز للرد على استفسارك مباشرة! يمكنك إكمال المراسلة.",
+          parse_mode="Markdown",
+      )
+    except Exception as e:
+      print(f"خطأ في إرسال تنبيه تواجد الأدمن للمستخدم: {e}")
+
+  elif call.data.startswith("support_ignore_"):
+    target_user_id = int(call.data.split("_")[2])
+    bot.answer_callback_query(call.id, "❌ تم تجاهل الطلب.")
+    bot.edit_message_caption(
+        call.message.caption + "\n\n🔴 **[تم تجاهل هذه الرسالة]**",
+        chat_id,
+        message_id,
+        parse_mode="Markdown",
     )
 
   elif call.data == "pay_crypto":
@@ -965,10 +1017,46 @@ def handle_all_messages(message):
       message.from_user.first_name if message.from_user.first_name else "مستخدم"
   )
 
-  # معالجة رسائل الدعم الفني وتوصيلها للإدارة تلقائياً
+  # إذا كان المرسل هو الأدمن وفي وضع الدردشة النشطة مع مستخدم معين
+  if user_id == ADMIN_ID and ADMIN_ID in admin_active_chat:
+    target_user_id = admin_active_chat[ADMIN_ID]
+    if message.text and message.text == "/endchat":
+      del admin_active_chat[ADMIN_ID]
+      bot.reply_to(message, "🔒 تم إنهاء جلسة الدردشة المباشرة.")
+      bot.send_message(
+          target_user_id,
+          "🔒 تم إغلاق جلسة الدعم الفني الحالية. شكراً لتواصلك معنا!",
+      )
+      return
+
+    try:
+      # إرسال رسالة الأدمن للمستخدم
+      if message.content_type == "text":
+        bot.send_message(
+            target_user_id,
+            f"💬 **رد الإدارة:**\n{message.text}",
+            parse_mode="Markdown",
+        )
+      elif message.content_type == "photo":
+        bot.send_photo(
+            target_user_id,
+            message.photo[-1].file_id,
+            caption=(
+                f"💬 **رد الإدارة:**\n{message.caption}"
+                if message.caption
+                else "💬 رد من الإدارة"
+            ),
+        )
+      bot.reply_to(message, "✅ تم إرسال الرد للمستخدم بنجاح.")
+    except Exception as e:
+      bot.reply_to(
+          message, f"❌ فشل إرسال الرد للمستخدم (ربما قام بحظر البوت): {e}"
+      )
+    return
+
+  # إذا أرسل المستخدم رسالة دعم جديدة
   if user_waiting_for_support_message.get(chat_id, False):
     user_waiting_for_support_message[chat_id] = False
-
     support_text = message.text if message.text else "محتوى غير نصي"
 
     bot.reply_to(
@@ -988,11 +1076,17 @@ def handle_all_messages(message):
 
     try:
       bot.send_message(
-          ADMIN_ID, admin_support_notification, parse_mode="Markdown"
+          ADMIN_ID,
+          admin_support_notification,
+          parse_mode="Markdown",
+          reply_markup=get_admin_support_action_menu(chat_id),
       )
     except Exception as e:
       print(f"خطأ في إرسال رسالة الدعم للأدمن: {e}")
     return
+
+  # إذا كان المستخدم في محادثة نشطة مع الأدمن ويرسل ردوداً إضافية
+  # (يمكن للمستخدم الرد على الأدمن مباشرة إذا كانت جلسته مفتوحة أو إرسال استفسار جديد عبر الزر)
 
   if (
       user_id == ADMIN_ID
@@ -1004,7 +1098,7 @@ def handle_all_messages(message):
     bot.reply_to(
         message,
         "✅ **تم تحديث وحفظ صورة الإعلان بنجاح!**",
-        parse_mode="Markdown",
+        parse_Mode="Markdown",
     )
     return
 
@@ -1106,7 +1200,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
   print(
-      "تم تشغيل البوت بنجاح (الكود رقم 27 - تفعيل نظام الدعم وتوصيل الرسائل"
+      "تم تشغيل البوت بنجاح (الكود رقم 28 - نظام محادثة الدعم الفني الفوري"
       " للإدارة)..."
   )
   bot.infinity_polling(timeout=60, long_polling_timeout=60)
