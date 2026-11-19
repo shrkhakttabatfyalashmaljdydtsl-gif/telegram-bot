@@ -2,7 +2,7 @@ import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (30) ====================
+# ==================== الكود رقم (31) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -20,8 +20,10 @@ user_temp_ad_data = {}
 user_waiting_for_support_message = {}  # لتتبع بدء التواصل لأول مرة
 admin_active_chat = {}  # يحفظ معرف المستخدم الذي يدردش معه الأدمن حالياً
 user_active_admin = {}  # يحفظ حالة أن المستخدم في دردشة نشطة مع الأدمن
+user_waiting_for_gift_note = {}  # لتتبع إرسال تفاصيل الهدية من المستخدم
+user_selected_gift = {}  # لحفظ الهدية التي اختارها المستخدم
 
-# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)[span_0](start_span)[span_0](end_span)
+# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)
 ratings_data = {"positive": 53, "negative": 11, "voted_users": set()}
 
 # قائمة المجلدات الديناميكية مع روابطها
@@ -326,6 +328,7 @@ def send_welcome(message):
   user_waiting_for_receipt[chat_id] = False
   user_waiting_for_ad_details[chat_id] = False
   user_waiting_for_support_message[chat_id] = False
+  user_waiting_for_gift_note[chat_id] = False
   text = (
       "مرحباً بك يا أخي فهد سامي القحطاني مدير جميع المؤسسات الاستثمار في بوت"
       " التمويل الاحترافي 🚀\n\nيرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام"
@@ -407,6 +410,7 @@ def callback_inline(call):
     user_waiting_for_receipt[chat_id] = False
     user_waiting_for_ad_details[chat_id] = False
     user_waiting_for_support_message[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
     bot.edit_message_text(
         "💎 **قسم شحن البوت:**\nاختر طريقة الدفع المناسبة للشحن:",
         chat_id,
@@ -416,6 +420,7 @@ def callback_inline(call):
     )
   elif call.data == "bot_balance":
     user_waiting_for_support_message[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
     current_balance = user_balances.get(chat_id, 0.0)
     balance_msg = (
         "💰 **استعلام عن الرصيد المالي:**\n\n"
@@ -436,10 +441,13 @@ def callback_inline(call):
     user_waiting_for_receipt[chat_id] = False
     user_waiting_for_ad_details[chat_id] = False
     user_waiting_for_support_message[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
+
     gifts_text = (
         "🎁 **قسم الشحن عبر الهدايا:**\n\n"
-        "✨ الحد الأدنى للهدايا يبدأ من **450 نجمة** وما فوق!\n"
-        "اختر الهدية المناسبة لك من القائمة أدناه، وسيتم توثيقها وإرسالها للإدارة فوراً لتتم إضافة الرصيد لحسابك:"
+        "⚠️ **تنبيه مهم:** يبدأ قبول الهدايا من **450 نجمة** فما فوق، ولا يمكن للبوت فحص ملفك الشخصي تلقائياً؛ يجب أن تمتلك الهدية فعلياً وتقوم بإرسالها وتأكيدها ليتم التحقق منها وإضافة الرصيد.\n"
+        "*(إذا لم يكن لديك هدية متوفرة فلن يتم اعتماد الشحن)*\n\n"
+        "اختر الهدية المناسبة لك من القائمة أدناه:"
     )
     bot.edit_message_text(
         gifts_text,
@@ -452,32 +460,22 @@ def callback_inline(call):
   elif call.data.startswith("gift_pkg_"):
     pkg_val = call.data.split("_")[2]
     gifts_info = {
-        "450": (
-            "🎁 **هدية بقيمة 450 نجمة**\n💰 القيمة المقابلة: **9.00 دولار**",
-            "450",
-            "9",
-        ),
+        "450": "🎁 **هدية بقيمة 450 نجمة**\n💰 القيمة المقابلة: **9.00 دولار**",
         "1000": (
-            "🎁 **هدية بقيمة 1,000 نجمة**\n💰 القيمة المقابلة: **20.00 دولار**",
-            "1000",
-            "20",
+            "🎁 **هدية بقيمة 1,000 نجمة**\n💰 القيمة المقابلة: **20.00 دولار**"
         ),
         "2500": (
-            "🎁 **هدية بقيمة 2,500 نجمة**\n💰 القيمة المقابلة: **50.00 دولار**",
-            "2500",
-            "50",
+            "🎁 **هدية بقيمة 2,500 نجمة**\n💰 القيمة المقابلة: **50.00 دولار**"
         ),
         "5000": (
-            "🎁 **هدية بقيمة 5,000 نجمة**\n💰 القيمة المقابلة: **100.00 دولار**",
-            "5000",
-            "100",
+            "🎁 **هدية بقيمة 5,000 نجمة**\n💰 القيمة المقابلة: **100.00 دولار**"
         ),
     }
     if pkg_val in gifts_info:
-      desc, stars_c, dollar_c = gifts_info[pkg_val]
+      desc = gifts_info[pkg_val]
       bot.edit_message_text(
           desc
-          + "\n\nاضغط على زر التأكيد أدناه لإرسال الهدية للإدارة وإتمام الشحن:",
+          + "\n\nتأكد من توفر الهدية لديك ثم اضغط على زر التأكيد أدناه:",
           chat_id,
           message_id,
           parse_mode="Markdown",
@@ -487,55 +485,31 @@ def callback_inline(call):
   elif call.data.startswith("confirm_gift_"):
     pkg_val = call.data.split("_")[2]
     gifts_values = {
-        "450": ("450 نجمة", "9.00 دولار", 9.0),
-        "1000": ("1,000 نجمة", "20.00 دولار", 20.0),
-        "2500": ("2,500 نجمة", "50.00 دولار", 50.0),
-        "5000": ("5,000 نجمة", "100.00 دولار", 100.0),
+        "450": ("450 نجمة", "9.00 دولار"),
+        "1000": ("1,000 نجمة", "20.00 دولار"),
+        "2500": ("2,500 نجمة", "50.00 دولار"),
+        "5000": ("5,000 نجمة", "100.00 دولار"),
     }
     if pkg_val in gifts_values:
-      stars_str, dollar_str, dollar_num = gifts_values[pkg_val]
-      bot.answer_callback_query(
-          call.id, "✅ تم إرسال طلب الهدية للإدارة بنجاح!"
-      )
+      stars_str, dollar_str = gifts_values[pkg_val]
+      user_selected_gift[chat_id] = (stars_str, dollar_str)
+      user_waiting_for_gift_note[chat_id] = True
+      bot.answer_callback_query(call.id)
 
-      user_name = (
-          call.from_user.first_name if call.from_user.first_name else "مستخدم"
-      )
-
-      success_user_msg = (
-          f"🎉 **تم إرسال طلب الهدية بنجاح ({stars_str} = {dollar_str})!**\n\n"
-          "⏳ تم تحويل طلبك إلى الإدارة للمراجعة وتأكيد إضافة الرصيد إلى حسابك قريباً. شكراً لك! 💎"
-      )
       bot.edit_message_text(
-          success_user_msg,
+          f"✍️ **تأكيد إرسال الهدية ({stars_str} = {dollar_str}):**\n\n"
+          "الرجاء إرسال اسم الهدية أو أي ملاحظة توضح إرسالها الآن في رسالة.\n"
+          "*(ملاحظة: في حال لم يكن لديك هدية أو لم تصل للإدارة سيتم رفض الطلب)*",
           chat_id,
           message_id,
           parse_mode="Markdown",
           reply_markup=get_back_to_main_menu_only(),
       )
 
-      admin_gift_notification = (
-          f"🎁 **طلب شحن عبر هدية جديد!**\n\n"
-          f"👤 اسم المستخدم: {user_name}\n"
-          f"🆔 معرف المستخدم (ID): `{user_id}`\n"
-          f"⭐ قيمة الهدية: `{stars_str}`\n"
-          f"💵 القيمة بالدولار: `{dollar_str}`\n\n"
-          "يرجى مراجعة الطلب بالأعلى، ثم الضغط على (تأكيد الشحن) وكتابة المبلغ بالدولار ليتم إضافته لرصيده يدوياً:"
-      )
-
-      try:
-        bot.send_message(
-            ADMIN_ID,
-            admin_gift_notification,
-            parse_mode="Markdown",
-            reply_markup=get_admin_action_menu(user_id),
-        )
-      except Exception as e:
-        print(f"خطأ في إرسال إشعار الهدية للأدمن: {e}")
-
   elif call.data == "advertise_channel":
     user_waiting_for_receipt[chat_id] = False
     user_waiting_for_support_message[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
     user_waiting_for_ad_details[chat_id] = True
 
     ad_instructions = (
@@ -560,6 +534,7 @@ def callback_inline(call):
     user_waiting_for_receipt[chat_id] = False
     user_waiting_for_ad_details[chat_id] = False
     user_waiting_for_support_message[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
 
     how_text = (
         "📢 **كيف يكون إعلانك؟ / How does your ad look?**\n\n"
@@ -599,6 +574,7 @@ def callback_inline(call):
 
   elif call.data == "user_ratings":
     user_waiting_for_support_message[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
     pos = ratings_data["positive"]
     neg = ratings_data["negative"]
     total = pos + neg
@@ -696,6 +672,7 @@ def callback_inline(call):
 
   elif call.data == "completed_ads":
     user_waiting_for_support_message[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
     completed_ads_report = (
         "💻 **سجل الإعلانات المنجزة والانتشار العالمي الاحترافي:**\n\n"
         "بفضل الله ثم بثقة عملائنا، تم تنفيذ ونشر الإعلانات الناجحة عبر شبكة مجلداتنا في مختلف الدول العربية والعالمية:\n\n"
@@ -722,10 +699,11 @@ def callback_inline(call):
     )
 
   elif call.data == "extra_contact":
+    user_waiting_for_gift_note[chat_id] = False
     user_waiting_for_support_message[chat_id] = True
     contact_msg = (
         "🔄 **التواصل والدعم الفني:**\n\n"
-        "💬 أهلاً بك يا غالي في خدمة العملاء والدعم.\n"
+        "💬 أهلاً بك يا غالي في مركز خدمة العملاء والدعم.\n"
         "الرجاء إرسال رسالتك أو استفسارك الآن في هذه الدردشة، وسيتم إرسالها فوراً إلى طاقم الإدارة والدعم الفني، وسيتم الرد عليك في أقرب وقت ممكن عند تواجدنا.\n\n"
         "✍️ **اكتب رسالتك الآن وأرسلها في الشات:**"
     )
@@ -786,6 +764,7 @@ def callback_inline(call):
 
   elif call.data == "pay_crypto":
     user_waiting_for_receipt[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
     crypto_text = (
         "🪙 **العملات الرقمية:**\n"
         "📉 أقل مبلغ شحن: 10 دولار\n"
@@ -809,6 +788,7 @@ def callback_inline(call):
     )
   elif call.data == "pay_stars":
     user_waiting_for_receipt[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
     stars_text = (
         "⭐ **شحن الرصيد عبر نجوم تيليجرام:**\n\n"
         "👇 اختر الباقة المناسبة لك:\n"
@@ -1012,7 +992,7 @@ def callback_inline(call):
 
     review_text = (
         "⏳ **تم استلام طلبك بنجاح!**\n\n"
-        "الإدارة تقوم مراجعة طلبك الآن.\n"
+        "الإدارة تقوم بمراجعة طلبك الآن.\n"
         "*(ملاحظة: الوقت الذي يتم استنفاذه أثناء الانتظار لم يُحسب، وسيبدأ عداد"
         " الإعلان فور الموافقة ونشره)*"
     )
@@ -1117,6 +1097,7 @@ def callback_inline(call):
     user_waiting_for_receipt[chat_id] = False
     user_waiting_for_ad_details[chat_id] = False
     user_waiting_for_support_message[chat_id] = False
+    user_waiting_for_gift_note[chat_id] = False
     text = (
         "مرحباً بك يا أخي فهد سامي القحطاني مدير جميع المؤسسات الاستثمار في بوت"
         " التمويل الاحترافي 🚀\n\nيرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام"
@@ -1264,7 +1245,57 @@ def handle_all_messages(message):
         return
     return
 
-  # 2. إذا كان المستخدم في دردشة نشطة مع الأدمن
+  # 2. إذا أرسل المستخدم تفاصيل الهدية بعد التأكيد
+  if user_waiting_for_gift_note.get(chat_id, False):
+    user_waiting_for_gift_note[chat_id] = False
+    stars_str, dollar_str = user_selected_gift.get(
+        chat_id, ("450 نجمة+", "دولار")
+    )
+    gift_note = (
+        message.text
+        if message.text
+        else (message.caption if message.caption else "بدون نص إضافي")
+    )
+
+    bot.reply_to(
+        message,
+        f"⏳ **تم إرسال طلب الهدية ({stars_str} = {dollar_str}) إلى الإدارة للمراجعة!**\n"
+        "سيقوم فريق الإدارة بالتحقق من وصول الهدية ثم إضافة الرصيد لحسابك يدوي.",
+        parse_mode="Markdown",
+        reply_markup=get_back_to_main_menu_only(),
+    )
+
+    admin_gift_notification = (
+        f"🎁 **طلب شحن عبر هدية للمراجعة:**\n\n"
+        f"👤 اسم المستخدم: {user_name}\n"
+        f"🆔 معرف المستخدم (ID): `{user_id}`\n"
+        f"⭐ الباقة المحددة: `{stars_str}`\n"
+        f"💵 القيمة بالدولار: `{dollar_str}`\n"
+        f"📝 تفاصيل/ملاحظة المرسل:\n{gift_note}\n\n"
+        "يرجى التحقق من وصول الهدية أولاً، ثم اضغط على (تأكيد الشحن) لإضافة الرصيد:"
+    )
+
+    try:
+      if message.content_type == "photo":
+        bot.send_photo(
+            ADMIN_ID,
+            message.photo[-1].file_id,
+            caption=admin_gift_notification,
+            parse_mode="Markdown",
+            reply_markup=get_admin_action_menu(user_id),
+        )
+      else:
+        bot.send_message(
+            ADMIN_ID,
+            admin_gift_notification,
+            parse_mode="Markdown",
+            reply_markup=get_admin_action_menu(user_id),
+        )
+    except Exception as e:
+      print(f"خطأ في إرسال طلب الهدية للأدمن: {e}")
+    return
+
+  # 3. إذا كان المستخدم في دردشة نشطة مع الأدمن
   if user_active_admin.get(user_id, False):
     support_text = (
         message.text
@@ -1295,7 +1326,7 @@ def handle_all_messages(message):
       print(f"خطأ في توجيه رسالة المحادثة للأدمن: {e}")
     return
 
-  # 3. إذا كان المستخدم يكتب تفاصيل الإعلان
+  # 4. إذا كان المستخدم يكتب تفاصيل الإعلان
   if user_waiting_for_ad_details.get(chat_id, False):
     user_waiting_for_ad_details[chat_id] = False
     if chat_id not in user_temp_ad_data:
@@ -1319,7 +1350,7 @@ def handle_all_messages(message):
     )
     return
 
-  # 4. إذا كان المستخدم يرسل رسالة الدعم الأولى
+  # 5. إذا كان المستخدم يرسل رسالة الدعم الأولى
   if user_waiting_for_support_message.get(chat_id, False):
     user_waiting_for_support_message[chat_id] = False
     support_text = (
@@ -1363,7 +1394,7 @@ def handle_all_messages(message):
       print(f"خطأ في إرسال رسالة الدعم للأدمن: {e}")
     return
 
-  # 5. معالجة إيصالات الشحن
+  # 6. معالجة إيصالات الشحن
   if message.content_type == "photo":
     if user_waiting_for_receipt.get(chat_id, False):
       bot.reply_to(
@@ -1402,7 +1433,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
   print(
-      "تم تشغيل البوت بنجاح (الكود رقم 30 - إضافة نظام الهدايا والشحن اليدوي"
+      "تم تشغيل البوت بنجاح (الكود رقم 31 - تحديث نظام الهدايا والتحقق اليدوي"
       " للإدارة)..."
   )
   bot.infinity_polling(timeout=60, long_polling_timeout=60)
