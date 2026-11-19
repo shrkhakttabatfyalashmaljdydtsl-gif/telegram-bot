@@ -2,7 +2,7 @@ import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (33) ====================
+# ==================== الكود رقم (34) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -81,66 +81,7 @@ def get_sub_menu_with_payment():
       InlineKeyboardButton("دفع عبر نجوم ⭐", callback_data="pay_stars"),
   )
   keyboard.row(
-      InlineKeyboardButton("🎁 دفع عبر هدايا", callback_data="pay_gifts")
-  )
-  keyboard.row(
       InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="back_to_main")
-  )
-  return keyboard
-
-
-def get_gifts_menu():
-  keyboard = InlineKeyboardMarkup()
-  keyboard.row(
-      InlineKeyboardButton(
-          "🎁 هدية 450 نجمة = 9.00 دولار", callback_data="gift_pkg_450"
-      )
-  )
-  keyboard.row(
-      InlineKeyboardButton(
-          "🎁 هدية 1,000 نجمة = 20.00 دولار", callback_data="gift_pkg_1000"
-      )
-  )
-  keyboard.row(
-      InlineKeyboardButton(
-          "🎁 هدية 2,500 نجمة = 50.00 دولار", callback_data="gift_pkg_2500"
-      )
-  )
-  keyboard.row(
-      InlineKeyboardButton(
-          "🎁 هدية 5,000 نجمة = 100.00 دولار", callback_data="gift_pkg_5000"
-      )
-  )
-  keyboard.row(
-      InlineKeyboardButton(
-          "🔙 رجوع إلى طرق الدفع", callback_data="recharge_bot"
-      )
-  )
-  return keyboard
-
-
-def get_gift_profile_only_menu(user_id):
-  keyboard = InlineKeyboardMarkup()
-  keyboard.row(
-      InlineKeyboardButton(
-          "👤 فتح الملف الشخصي / الحساب", url=f"tg://user?id={user_id}"
-      )
-  )
-  keyboard.row(
-      InlineKeyboardButton("🔙 رجوع لقائمة الهدايا", callback_data="pay_gifts")
-  )
-  return keyboard
-
-
-def get_gift_after_selection_confirm_menu(gift_key):
-  keyboard = InlineKeyboardMarkup()
-  keyboard.row(
-      InlineKeyboardButton(
-          "تأكيد إرسال الهدية ✅", callback_data=f"confirm_gift_{gift_key}"
-      )
-  )
-  keyboard.row(
-      InlineKeyboardButton("🔙 رجوع لقائمة الهدايا", callback_data="pay_gifts")
   )
   return keyboard
 
@@ -444,94 +385,6 @@ def callback_inline(call):
         parse_mode="Markdown",
         reply_markup=get_back_to_main_menu_only(),
     )
-
-  elif call.data == "pay_gifts":
-    user_waiting_for_receipt[chat_id] = False
-    user_waiting_for_ad_details[chat_id] = False
-    user_waiting_for_support_message[chat_id] = False
-    gifts_text = (
-        "🎁 **قسم الشحن عبر الهدايا:**\n\n"
-        "✨ تبدأ الهدايا من **450 نجمة** وما فوق مع قيمتها بالدولار.\n"
-        "اختر الهدية المناسبة لك من القائمة أدناه:"
-    )
-    bot.edit_message_text(
-        gifts_text,
-        chat_id,
-        message_id,
-        parse_mode="Markdown",
-        reply_markup=get_gifts_menu(),
-    )
-
-  elif call.data.startswith("gift_pkg_"):
-    pkg_val = call.data.split("_")[2]
-    gifts_info = {
-        "450": "🎁 **هدية 450 نجمة = 9.00 دولار**",
-        "1000": "🎁 **هدية 1,000 نجمة = 20.00 دولار**",
-        "2500": "🎁 **هدية 2,500 نجمة = 50.00 دولار**",
-        "5000": "🎁 **هدية 5,000 نجمة = 100.00 دولار**",
-    }
-    if pkg_val in gifts_info:
-      bot.edit_message_text(
-          f"{gifts_info[pkg_val]}\n\n"
-          "تم توجيهك لملفك الشخصي/الحساب لاختيار الهدية من هناك:",
-          chat_id,
-          message_id,
-          parse_mode="Markdown",
-          reply_markup=get_gift_profile_only_menu(user_id),
-      )
-
-      bot.send_message(
-          chat_id,
-          "👇 بعد اختيار الهدية من ملفك الشخصي، اضغط على زر التأكيد أدناه:",
-          parse_mode="Markdown",
-          reply_markup=get_gift_after_selection_confirm_menu(pkg_val),
-      )
-
-  elif call.data.startswith("confirm_gift_"):
-    pkg_val = call.data.split("_")[2]
-    gifts_values = {
-        "450": ("450 نجمة", "9.00 دولار"),
-        "1000": ("1,000 نجمة", "20.00 دولار"),
-        "2500": ("2,500 نجمة", "50.00 دولار"),
-        "5000": ("5,000 نجمة", "100.00 دولار"),
-    }
-    if pkg_val in gifts_values:
-      stars_str, dollar_str = gifts_values[pkg_val]
-      bot.answer_callback_query(
-          call.id, "✅ تم إرسال التأكيد إلى الإدارة!"
-      )
-
-      user_name = (
-          call.from_user.first_name if call.from_user.first_name else "مستخدم"
-      )
-
-      bot.edit_message_text(
-          f"🎉 **تم تأكيد إرسال الهدية ({stars_str} = {dollar_str})!**\n\n"
-          "⏳ تم إرسال إشعار للإدارة لإضافة الرصيد إلى حسابك يدوياً. شكراً لك! 💎",
-          chat_id,
-          message_id,
-          parse_mode="Markdown",
-          reply_markup=get_back_to_main_menu_only(),
-      )
-
-      admin_gift_notification = (
-          f"🎁 **تأكيد شحن عبر هدية جديد!**\n\n"
-          f"👤 اسم المستخدم: {user_name}\n"
-          f"🆔 معرف المستخدم (ID): `{user_id}`\n"
-          f"⭐ الهدية: `{stars_str}`\n"
-          f"💵 القيمة بالدولار: `{dollar_str}`\n\n"
-          "اضغط على (تأكيد الشحن) لإضافة المبلغ يدوياً لحساب المستخدم:"
-      )
-
-      try:
-        bot.send_message(
-            ADMIN_ID,
-            admin_gift_notification,
-            parse_mode="Markdown",
-            reply_markup=get_admin_action_menu(user_id),
-        )
-      except Exception as e:
-        print(f"خطأ في إرسال إشعار الهدية للأدمن: {e}")
 
   elif call.data == "advertise_channel":
     user_waiting_for_receipt[chat_id] = False
@@ -1402,7 +1255,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
   print(
-      "تم تشغيل البوت بنجاح (الكود رقم 33 - فصل زر فتح الحساب عن زر تأكيد"
-      " الهدايا بعد الاختيار)..."
+      "تم تشغيل البوت بنجاح (الكود رقم 34 - حذف خيار الهدايا والإبقاء على"
+      " العملات الرقمية والنجوم)..."
   )
   bot.infinity_polling(timeout=60, long_polling_timeout=60)
