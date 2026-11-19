@@ -21,7 +21,7 @@ user_waiting_for_support_message = {}  # لتتبع بدء التواصل لأو
 admin_active_chat = {}  # يحفظ معرف المستخدم الذي يدردش معه الأدمن حالياً
 user_active_admin = {}  # يحفظ حالة أن المستخدم في دردشة نشطة مع الأدمن
 
-# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)
+# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)[span_0](start_span)[span_0](end_span)
 ratings_data = {"positive": 53, "negative": 11, "voted_users": set()}
 
 # قائمة المجلدات الديناميكية مع روابطها
@@ -1369,4 +1369,40 @@ def handle_all_messages(message):
       bot.reply_to(
           message,
           "✅ **تم استلام لقطة الشاشة (Screenshot) بنجاح!**\nتم إرسالها إلى"
-          " الإدارة للمراج
+          " الإدارة للمراجعة وتأكيد الشحن في حسابك قريباً.",
+          parse_mode="Markdown",
+      )
+      user_waiting_for_receipt[chat_id] = False
+
+      file_id = message.photo[-1].file_id
+      caption = (
+          f"📥 **طلب شحن جديد من المستخدم:** {user_name}\n🆔 المعرف: `{user_id}`"
+          f"\n\nيرجى مراجعة إيصال الدفع بالأعلى، ثم الضغط على (تأكيد الشحن) وكتابة"
+          " المبلغ:"
+      )
+
+      try:
+        bot.send_photo(
+            ADMIN_ID,
+            file_id,
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=get_admin_action_menu(user_id),
+        )
+      except Exception as e:
+        print(f"خطأ في إرسال الصورة للآدمن: {e}")
+    else:
+      bot.reply_to(
+          message,
+          "📸 شكراً لإرسال الصورة. للشحن، يرجى الدخول إلى (شحن البوت) ثم اختيار"
+          " طريقة الدفع المناسبة.",
+      )
+
+
+# ==================== تشغيل البوت ====================
+if __name__ == "__main__":
+  print(
+      "تم تشغيل البوت بنجاح (الكود رقم 30 - إضافة نظام الهدايا والشحن اليدوي"
+      " للإدارة)..."
+  )
+  bot.infinity_polling(timeout=60, long_polling_timeout=60)
