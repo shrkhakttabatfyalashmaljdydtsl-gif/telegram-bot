@@ -2,7 +2,7 @@ import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (26) - النسخة المحدثة نهائياً ====================
+# ==================== الكود رقم (27) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -17,6 +17,7 @@ admin_waiting_for_amount = {}
 user_balances = {}  # يحفظ أرصدة المستخدمين
 user_waiting_for_ad_details = {}
 user_temp_ad_data = {}
+user_waiting_for_support_message = {}  # لتتبع رسائل التواصل والدعم
 
 # نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)[span_0](start_span)[span_0](end_span)
 ratings_data = {"positive": 53, "negative": 11, "voted_users": set()}
@@ -263,6 +264,7 @@ def send_welcome(message):
   chat_id = message.chat.id
   user_waiting_for_receipt[chat_id] = False
   user_waiting_for_ad_details[chat_id] = False
+  user_waiting_for_support_message[chat_id] = False
   text = (
       "مرحباً بك يا أخي فهد سامي القحطاني مدير جميع المؤسسات الاستثمار في بوت"
       " التمويل الاحترافي 🚀\n\nيرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام"
@@ -343,6 +345,7 @@ def callback_inline(call):
   if call.data == "recharge_bot":
     user_waiting_for_receipt[chat_id] = False
     user_waiting_for_ad_details[chat_id] = False
+    user_waiting_for_support_message[chat_id] = False
     bot.edit_message_text(
         "💎 **قسم شحن البوت:**\nاختر طريقة الدفع المناسبة للشحن:",
         chat_id,
@@ -351,6 +354,7 @@ def callback_inline(call):
         reply_markup=get_sub_menu_with_payment(),
     )
   elif call.data == "bot_balance":
+    user_waiting_for_support_message[chat_id] = False
     current_balance = user_balances.get(chat_id, 0.0)
     balance_msg = (
         "💰 **استعلام عن الرصيد المالي:**\n\n"
@@ -369,6 +373,7 @@ def callback_inline(call):
 
   elif call.data == "advertise_channel":
     user_waiting_for_receipt[chat_id] = False
+    user_waiting_for_support_message[chat_id] = False
     user_waiting_for_ad_details[chat_id] = True
 
     ad_instructions = (
@@ -392,6 +397,7 @@ def callback_inline(call):
     global current_ad_photo
     user_waiting_for_receipt[chat_id] = False
     user_waiting_for_ad_details[chat_id] = False
+    user_waiting_for_support_message[chat_id] = False
 
     how_text = (
         "📢 **كيف يكون إعلانك؟ / How does your ad look?**\n\n"
@@ -430,6 +436,7 @@ def callback_inline(call):
       )
 
   elif call.data == "user_ratings":
+    user_waiting_for_support_message[chat_id] = False
     pos = ratings_data["positive"]
     neg = ratings_data["negative"]
     total = pos + neg
@@ -526,6 +533,7 @@ def callback_inline(call):
       pass
 
   elif call.data == "completed_ads":
+    user_waiting_for_support_message[chat_id] = False
     completed_ads_report = (
         "💻 **سجل الإعلانات المنجزة والانتشار العالمي الاحترافي:**\n\n"
         "بفضل الله ثم بثقة عملائنا، تم تنفيذ ونشر الإعلانات الناجحة عبر شبكة مجلداتنا في مختلف الدول العربية والعالمية:\n\n"
@@ -552,13 +560,21 @@ def callback_inline(call):
     )
 
   elif call.data == "extra_contact":
+    user_waiting_for_support_message[chat_id] = True
+    contact_msg = (
+        "🔄 **التواصل والدعم الفني:**\n\n"
+        "💬 أهلاً بك يا غالي في مركز خدمة العملاء والدعم.\n"
+        "الرجاء إرسال رسالتك أو استفسارك الآن في هذه الدردشة، وسيتم إرسالها فوراً إلى طاقم الإدارة والدعم الفني، وسيتم الرد عليك في أقرب وقت ممكن عند تواجدنا.\n\n"
+        "✍️ **اكتب رسالتك الآن وأرسلها في الشات:**"
+    )
     bot.edit_message_text(
-        "🔄 **التواصل والدعم:**\nلأي استفسار أو مساعدة تواصل معنا عبر الأزرار.",
+        contact_msg,
         chat_id,
         message_id,
         parse_mode="Markdown",
-        reply_markup=get_sub_menu_with_payment(),
+        reply_markup=get_back_to_main_menu_only(),
     )
+
   elif call.data == "pay_crypto":
     user_waiting_for_receipt[chat_id] = False
     crypto_text = (
@@ -891,6 +907,7 @@ def callback_inline(call):
   elif call.data == "back_to_main":
     user_waiting_for_receipt[chat_id] = False
     user_waiting_for_ad_details[chat_id] = False
+    user_waiting_for_support_message[chat_id] = False
     text = (
         "مرحباً بك يا أخي فهد سامي القحطاني مدير جميع المؤسسات الاستثمار في بوت"
         " التمويل الاحترافي 🚀\n\nيرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام"
@@ -944,6 +961,38 @@ def handle_all_messages(message):
   global current_ad_photo
   chat_id = message.chat.id
   user_id = message.from_user.id
+  user_name = (
+      message.from_user.first_name if message.from_user.first_name else "مستخدم"
+  )
+
+  # معالجة رسائل الدعم الفني وتوصيلها للإدارة تلقائياً
+  if user_waiting_for_support_message.get(chat_id, False):
+    user_waiting_for_support_message[chat_id] = False
+
+    support_text = message.text if message.text else "محتوى غير نصي"
+
+    bot.reply_to(
+        message,
+        "✅ **تم ارسال رسالتك إلى فريق الدعم الفني والإدارة بنجاح!**\n"
+        "شكراً لتواصلك معنا، سيتم الاطلاع على رسالتك والرد عليك قريباً جداً عند تواجد الإدارة. طاب يومك! 🙏",
+        parse_mode="Markdown",
+        reply_markup=get_back_to_main_menu_only(),
+    )
+
+    admin_support_notification = (
+        f"📩 **رسالة جديدة من قسم الدعم والتواصل:**\n\n"
+        f"👤 اسم المستخدم: {user_name}\n"
+        f"🆔 معرف المستخدم (ID): `{chat_id}`\n\n"
+        f"💬 **محتوى الرسالة:**\n{support_text}"
+    )
+
+    try:
+      bot.send_message(
+          ADMIN_ID, admin_support_notification, parse_mode="Markdown"
+      )
+    except Exception as e:
+      print(f"خطأ في إرسال رسالة الدعم للأدمن: {e}")
+    return
 
   if (
       user_id == ADMIN_ID
@@ -1020,12 +1069,6 @@ def handle_all_messages(message):
       return
 
   if message.content_type == "photo":
-    user_name = (
-        message.from_user.first_name
-        if message.from_user.first_name
-        else "مستخدم"
-    )
-
     if user_waiting_for_receipt.get(chat_id, False):
       bot.reply_to(
           message,
@@ -1063,6 +1106,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
   print(
-      "تم تشغيل البوت بنجاح (كود رقم 26 - فصل رصيد البوت وعرض الرصيد فقط)..."
+      "تم تشغيل البوت بنجاح (الكود رقم 27 - تفعيل نظام الدعم وتوصيل الرسائل"
+      " للإدارة)..."
   )
   bot.infinity_polling(timeout=60, long_polling_timeout=60)
