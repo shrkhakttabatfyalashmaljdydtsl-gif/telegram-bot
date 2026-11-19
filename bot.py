@@ -1,9 +1,11 @@
 import os
+import sqlite3
+import time
 from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (36) ====================
+# ==================== الكود رقم (39) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -11,19 +13,224 @@ bot = telebot.TeleBot(TOKEN)
 # الآيدي الخاص بك كإدارة
 ADMIN_ID = 7004113433
 
-# المتغيرات الأساسية
-current_ad_photo = None
+# مسار ملف قاعدة البيانات لحفظ بيانات البوت بشكل دائم
+DB_PATH = os.getenv("DB_PATH", "bot_data.db")
+
+DEFAULT_FOLDERS = {
+    "folder_1": {
+        "name": "📁 المجلد الأول",
+        "link": "https://t.me/addlist/iGXVLJMZZx0yNWZk",
+    },
+    "folder_2": {
+        "name": "📁 المجلد الثاني",
+        "link": "https://t.me/addlist/default2",
+    },
+    "folder_3": {
+        "name": "📁 المجلد الثالث",
+        "link": "https://t.me/addlist/default3",
+    },
+}
+
+
+def init_db():
+  with sqlite3.connect(DB_PATH) as conn:
+    conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_balances (
+                chat_id INTEGER PRIMARY KEY,
+                balance REAL NOT NULL DEFAULT 0.0
+            )
+            """)
+    conn.execute("""
+            CREATE TABLE IF NOT EXISTS ratings_summary (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                positive INTEGER NOT NULL DEFAULT 53,
+                negative INTEGER NOT NULL DEFAULT 11
+            )
+            """)
+    conn.execute("""
+            CREATE TABLE IF NOT EXISTS ratings_votes (
+                user_id INTEGER PRIMARY KEY
+            )
+            """)
+    conn.execute("""
+            CREATE TABLE IF NOT EXISTS dynamic_folders (
+                folder_key TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                link TEXT NOT NULL
+            )
+            """)
+    conn.execute("""
+            CREATE TABLE IF NOT EXISTS bot_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+            """)
+    conn.execute("""
+            CREATE TABLE IF NOT EXISTS bot_users (
+                user_id INTEGER PRIMARY KEY,
+                chat_id INTEGER NOT NULL
+            )
+            """)
+    conn.execute("""
+            INSERT OR IGNORE INTO ratings_summary (id, positive, negative)
+            VALUES (1, 53, 11)
+            """)
+    for key, data in DEFAULT_FOLDERS.items():
+      conn.execute(
+          """
+                INSERT OR IGNORE INTO dynamic_folders (folder_key, name, link)
+                VALUES (?, ?, ?)
+                """,
+          (key, data["name"], data["link"]),
+      )
+    conn.execute("""
+            INSERT OR IGNORE INTO bot_settings (key, value)
+            VALUES ('current_ad_photo', '')
+            """)
+    conn.commit()
+
+
+def register_user(user_id, chat_id):
+  if not user_id or not chat_id:
+    return
+  with sqlite3.connect(DB_PATH) as conn:
+    conn.execute(
+        """
+            INSERT INTO bot_users (user_id, chat_id)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET chat_id = excluded.chat_id
+            """,
+        (int(user_id), int(chat_id)),
+    )
+    conn.commit()
+
+
+def get_all_users():
+  with sqlite3.connect(DB_PATH) as conn:
+    rows = conn.execute(
+        "SELECT DISTINCT chat_id FROM bot_users WHERE chat_id IS NOT NULL"
+    ).fetchall()
+    return [int(r[0]) for r in rows]
+
+
+def load_balances():
+  balances = {}
+  with sqlite3.connect(DB_PATH) as conn:
+    cursor = conn.execute("SELECT chat_id, balance FROM user_balances")
+    for chat_id, balance in cursor.fetchall():
+      balances[int(chat_id)] = float(balance)
+  return balances
+
+
+def save_balance(chat_id, balance):
+  with sqlite3.connect(DB_PATH) as conn:
+    conn.execute(
+        """
+            INSERT INTO user_balances (chat_id, balance)
+            VALUES (?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET balance = excluded.balance
+            """,
+        (int(chat_id), float(balance)),
+    )
+    conn.commit()
+
+
+def load_ratings():
+  positive = 53
+  negative = 11
+  voted_users = set()
+  with sqlite3.connect(DB_PATH) as conn:
+    row = conn.execute(
+        "SELECT positive, negative FROM ratings_summary WHERE id = 1"
+    ).fetchone()
+    if row:
+      positive = int(row[0])
+      negative = int(row[1])
+    for (uid,) in conn.execute("SELECT user_id FROM ratings_votes"):
+      voted_users.add(int(uid))
+  return {"positive": positive, "negative": negative, "voted_users": voted_users}
+
+
+def save_rating_vote(user_id, is_positive):
+  with sqlite3.connect(DB_PATH) as conn:
+    conn.execute(
+        "INSERT OR IGNORE INTO ratings_votes (user_id) VALUES (?)",
+        (int(user_id),),
+    )
+    if is_positive:
+      conn.execute(
+          "UPDATE ratings_summary SET positive = positive + 1 WHERE id = 1"
+      )
+    else:
+      conn.execute(
+          "UPDATE ratings_summary SET negative = negative + 1 WHERE id = 1"
+      )
+    conn.commit()
+
+
+def load_folders():
+  folders = {}
+  with sqlite3.connect(DB_PATH) as conn:
+    cursor = conn.execute(
+        "SELECT folder_key, name, link FROM dynamic_folders ORDER BY folder_key"
+    )
+    for key, name, link in cursor.fetchall():
+      folders[key] = {"name": name, "link": link}
+  return folders if folders else dict(DEFAULT_FOLDERS)
+
+
+def save_folder(folder_key, name, link):
+  with sqlite3.connect(DB_PATH) as conn:
+    conn.execute(
+        """
+            INSERT INTO dynamic_folders (folder_key, name, link)
+            VALUES (?, ?, ?)
+            ON CONFLICT(folder_key) DO UPDATE SET name = excluded.name, link = excluded.link
+            """,
+        (folder_key, name, link),
+    )
+    conn.commit()
+
+
+def load_ad_photo():
+  with sqlite3.connect(DB_PATH) as conn:
+    row = conn.execute(
+        "SELECT value FROM bot_settings WHERE key = 'current_ad_photo'"
+    ).fetchone()
+    if row and row[0]:
+      return row[0]
+  return None
+
+
+def save_ad_photo(photo_file_id):
+  with sqlite3.connect(DB_PATH) as conn:
+    conn.execute(
+        """
+            INSERT INTO bot_settings (key, value)
+            VALUES ('current_ad_photo', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+        (photo_file_id or "",),
+    )
+    conn.commit()
+
+
+init_db()
+
+# المتغيرات الأساسية المحملة من قاعدة البيانات
+current_ad_photo = load_ad_photo()
 user_waiting_for_receipt = {}
 admin_waiting_for_amount = {}
-user_balances = {}  # يحفظ أرصدة المستخدمين
+admin_waiting_for_broadcast = set()
+user_balances = load_balances()
 user_waiting_for_ad_details = {}
 user_temp_ad_data = {}
-user_waiting_for_support_message = {}  # لتتبع بدء التواصل لأول مرة
-admin_active_chat = {}  # يحفظ معرف المستخدم الذي يدردش معه الأدمن حالياً
-user_active_admin = {}  # يحفظ حالة أن المستخدم في دردشة نشطة مع الأدمن
+user_waiting_for_support_message = {}
+admin_active_chat = {}
+user_active_admin = {}
 
-# نظام التقييمات التفاعلي (يبدأ بالأساسيات: 53 إيجابي، 11 سلبي، والمجموع 64)
-ratings_data = {"positive": 53, "negative": 11, "voted_users": set()}
+# نظام التقييمات التفاعلي (محفوظ في قاعدة البيانات)
+ratings_data = load_ratings()
 
 
 def get_display_name(user):
@@ -94,21 +301,8 @@ def build_completed_ads_report():
   )
 
 
-# قائمة المجلدات الديناميكية مع روابطها
-dynamic_folders = {
-    "folder_1": {
-        "name": "📁 المجلد الأول",
-        "link": "https://t.me/addlist/iGXVLJMZZx0yNWZk",
-    },
-    "folder_2": {
-        "name": "📁 المجلد الثاني",
-        "link": "https://t.me/addlist/default2",
-    },
-    "folder_3": {
-        "name": "📁 المجلد الثالث",
-        "link": "https://t.me/addlist/default3",
-    },
-}
+# قائمة المجلدات الديناميكية محملة من قاعدة البيانات
+dynamic_folders = load_folders()
 
 
 # ==================== الأزرار الرئيسية ====================
@@ -347,11 +541,27 @@ def get_admin_support_action_menu(user_id):
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
   chat_id = message.chat.id
+  register_user(message.from_user.id, chat_id)
   user_waiting_for_receipt[chat_id] = False
   user_waiting_for_ad_details[chat_id] = False
   user_waiting_for_support_message[chat_id] = False
   text = build_welcome_text(message.from_user)
   bot.send_message(chat_id, text, reply_markup=get_main_menu())
+
+
+@bot.message_handler(commands=["broadcast"])
+def broadcast_command(message):
+  if message.from_user.id != ADMIN_ID:
+    return
+  register_user(message.from_user.id, message.chat.id)
+  admin_waiting_for_broadcast.add(ADMIN_ID)
+  bot.reply_to(
+      message,
+      "📣 **أرسل الآن الرسالة التي تريد إيصالها إلى جميع المستخدمين.**\n"
+      "*(يمكنك إرسال نص أو صورة مع نص)*\n"
+      "لإلغاء العملية أرسل: `/cancel`",
+      parse_mode="Markdown",
+  )
 
 
 @bot.message_handler(commands=["addfolder"])
@@ -370,10 +580,13 @@ def add_folder_command(message):
 
   folder_title = args[1].strip()
   new_key = f"folder_{len(dynamic_folders) + 1}"
+  folder_name = f"📁 {folder_title}"
+  folder_link = "https://t.me/"
   dynamic_folders[new_key] = {
-      "name": f"📁 {folder_title}",
-      "link": "https://t.me/",
+      "name": folder_name,
+      "link": folder_link,
   }
+  save_folder(new_key, folder_name, folder_link)
 
   bot.reply_to(
       message,
@@ -405,6 +618,7 @@ def set_folder_link_command(message):
   if folder_key in dynamic_folders:
     dynamic_folders[folder_key]["link"] = folder_link
     folder_name = dynamic_folders[folder_key]["name"]
+    save_folder(folder_key, folder_name, folder_link)
     bot.reply_to(
         message,
         f"✅ **تم تحديث رابط {folder_name} بنجاح!**\nالرابط الجديد:\n`{folder_link}`",
@@ -422,6 +636,7 @@ def callback_inline(call):
   chat_id = call.message.chat.id
   message_id = call.message.message_id
   user_id = call.from_user.id
+  register_user(user_id, chat_id)
 
   if call.data == "recharge_bot":
     user_waiting_for_receipt[chat_id] = False
@@ -547,6 +762,7 @@ def callback_inline(call):
     if user_id not in ratings_data["voted_users"]:
       ratings_data["positive"] += 1
       ratings_data["voted_users"].add(user_id)
+      save_rating_vote(user_id, is_positive=True)
       bot.answer_callback_query(call.id, "✅ شكراً لك! تم تسجيل تقييمك الإيجابي.")
     else:
       bot.answer_callback_query(
@@ -581,6 +797,7 @@ def callback_inline(call):
     if user_id not in ratings_data["voted_users"]:
       ratings_data["negative"] += 1
       ratings_data["voted_users"].add(user_id)
+      save_rating_vote(user_id, is_positive=False)
       bot.answer_callback_query(
           call.id, "📌 شكراً لك! تم تسجيل تقييمك وسنعمل على تحسين البوت."
       )
@@ -914,7 +1131,9 @@ def callback_inline(call):
       )
       return
 
-    user_balances[chat_id] = current_bal - price
+    new_bal = current_bal - price
+    user_balances[chat_id] = new_bal
+    save_balance(chat_id, new_bal)
 
     review_text = (
         "⏳ **تم استلام طلبك بنجاح!**\n\n"
@@ -994,7 +1213,9 @@ def callback_inline(call):
     price = ad_info.get("price", 0.0)
 
     current_bal = user_balances.get(target_user_id, 0.0)
-    user_balances[target_user_id] = current_bal + price
+    new_bal = current_bal + price
+    user_balances[target_user_id] = new_bal
+    save_balance(target_user_id, new_bal)
 
     rejected_msg = (
         f"❌ **عذراً، لقد تم رفض طلب إعلانك الحالي من قبل الإدارة** 🛑\n"
@@ -1044,9 +1265,12 @@ def got_payment(message):
   payment_info = message.successful_payment
   total_amount = payment_info.total_amount
   chat_id = message.chat.id
+  register_user(message.from_user.id, chat_id)
 
   current_bal = user_balances.get(chat_id, 0.0)
-  user_balances[chat_id] = current_bal + total_amount
+  new_bal = current_bal + total_amount
+  user_balances[chat_id] = new_bal
+  save_balance(chat_id, new_bal)
 
   bot.send_message(
       chat_id,
@@ -1072,12 +1296,65 @@ def handle_all_messages(message):
   global current_ad_photo
   chat_id = message.chat.id
   user_id = message.from_user.id
+  register_user(user_id, chat_id)
   user_name = (
       message.from_user.first_name if message.from_user.first_name else "مستخدم"
   )
 
   # 1. إذا كان المرسل هو الأدمن
   if user_id == ADMIN_ID:
+    if message.text and message.text.strip() == "/cancel":
+      if ADMIN_ID in admin_waiting_for_broadcast:
+        admin_waiting_for_broadcast.remove(ADMIN_ID)
+        bot.reply_to(message, "❌ تم إلغاء عملية الإرسال الجماعي.")
+        return
+
+    if ADMIN_ID in admin_waiting_for_broadcast:
+      admin_waiting_for_broadcast.remove(ADMIN_ID)
+      recipients = get_all_users()
+      sent_count = 0
+      failed_count = 0
+
+      status_msg = bot.reply_to(
+          message,
+          f"⏳ **جاري إرسال الرسالة إلى `{len(recipients)}` مستخدم...**",
+          parse_mode="Markdown",
+      )
+
+      for target_chat_id in recipients:
+        try:
+          if message.content_type == "photo":
+            bot.send_photo(
+                target_chat_id,
+                message.photo[-1].file_id,
+                caption=message.caption if message.caption else None,
+            )
+          else:
+            bot.send_message(target_chat_id, message.text)
+          sent_count += 1
+          time.sleep(0.05)
+        except Exception:
+          failed_count += 1
+
+      try:
+        bot.edit_message_text(
+            f"✅ **اكتمل الإرسال الجماعي!**\n\n"
+            f"📬 تم الإرسال بنجاح إلى: `{sent_count}` مستخدم\n"
+            f"⚠️ تعذر الإرسال إلى: `{failed_count}` مستخدم",
+            chat_id,
+            status_msg.message_id,
+            parse_mode="Markdown",
+        )
+      except Exception:
+        bot.send_message(
+            chat_id,
+            f"✅ **اكتمل الإرسال الجماعي!**\n\n"
+            f"📬 تم الإرسال بنجاح إلى: `{sent_count}` مستخدم\n"
+            f"⚠️ تعذر الإرسال إلى: `{failed_count}` مستخدم",
+            parse_mode="Markdown",
+        )
+      return
+
     if message.text and message.text == "/endchat":
       if ADMIN_ID in admin_active_chat:
         target_user_id = admin_active_chat[ADMIN_ID]
@@ -1127,6 +1404,7 @@ def handle_all_messages(message):
         and not user_waiting_for_ad_details.get(chat_id, False)
     ):
       current_ad_photo = message.photo[-1].file_id
+      save_ad_photo(current_ad_photo)
       bot.reply_to(
           message,
           "✅ **تم تحديث وحفظ صورة الإعلان بنجاح!**",
@@ -1140,7 +1418,9 @@ def handle_all_messages(message):
       if amount_text.isdigit():
         amount = float(amount_text)
         current_bal = user_balances.get(target_user_id, 0.0)
-        user_balances[target_user_id] = current_bal + amount
+        new_bal = current_bal + amount
+        user_balances[target_user_id] = new_bal
+        save_balance(target_user_id, new_bal)
         bot.reply_to(
             message,
             f"✅ **تم بنجاح إضافة مبلغ `{amount}` إلى حساب المستخدم (ID:"
@@ -1305,7 +1585,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
   print(
-      "تم تشغيل البوت بنجاح (الكود رقم 36 - الترحيب الديناميكي باسم كل"
-      " مستخدم)..."
+      "تم تشغيل البوت بنجاح (الكود رقم 39 - إضافة أمر الإرسال الجماعي"
+      " /broadcast للأدمن)..."
   )
   bot.infinity_polling(timeout=60, long_polling_timeout=60)
