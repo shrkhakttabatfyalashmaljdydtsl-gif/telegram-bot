@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (40) ====================
+# ==================== الكود رقم (41) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -883,13 +883,13 @@ def callback_inline(call):
         clear_user_states(chat_id)
         binance_text = (
             "🟡 **شحن البوت عبر منصة بينانس (Binance):**\n\n"
-            "اخترت منصة **Binance** لشحن رصيدك.\n"
+            "اخترت منصة Binance لشحن رصيدك اقل مبلغ شحن 10دولار\n"
             "• العملة: `USDT`\n"
             "• الشبكة: `BNB Smart Chain (BEP20)`\n"
             "• العنوان:\n"
             "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
-            "بعد إتمام التحويل عبر Binance، اضغط على **أرسل الوصل 📤** وأرسل"
-            " صورة الإيصال."
+            "بعد إتمام التحويل عبر Binance، اضغط على أرسل الوصل 📤 وأرسل"
+            " صورة الإيصال"
         )
         bot.edit_message_text(
             binance_text,
@@ -902,13 +902,11 @@ def callback_inline(call):
         clear_user_states(chat_id)
         okx_text = (
             "⚫ **شحن البوت عبر منصة OKX:**\n\n"
-            "اخترت منصة **OKX** لشحن رصيدك.\n"
+            "شحن 30دولار\n"
             "• العملة: `USDT`\n"
-            "• الشبكة: `BNB Smart Chain (BEP20)`\n"
+            "• الشبكة: `X Layer (USDT&USDT0)`\n"
             "• العنوان:\n"
-            "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
-            "بعد إتمام التحويل عبر OKX، اضغط على **أرسل الوصل 📤** وأرسل"
-            " صورة الإيصال."
+            "`XKOa3E8f6838ffd2230B2e484C402EE3c951Ef5AB99`"
         )
         bot.edit_message_text(
             okx_text,
@@ -921,13 +919,11 @@ def callback_inline(call):
         clear_user_states(chat_id)
         tw_text = (
             "🔵 **شحن البوت عبر محفظة Trust Wallet:**\n\n"
-            "اخترت **Trust Wallet** لشحن رصيدك.\n"
+            "شحن 30دولار\n"
             "• العملة: `USDT`\n"
             "• الشبكة: `BNB Smart Chain (BEP20)`\n"
             "• العنوان:\n"
-            "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
-            "بعد إتمام التحويل عبر Trust Wallet، اضغط على **أرسل الوصل 📤**"
-            " وأرسل صورة الإيصال."
+            "`0xa92D1c298f86fCAd3E231D8A2CE91A89c01dFB33`"
         )
         bot.edit_message_text(
             tw_text,
@@ -992,19 +988,11 @@ def callback_inline(call):
         )
     elif call.data == "transfer_balance":
         clear_user_states(chat_id)
-        current_bal = user_balances.get(chat_id, 0.0)
-        user_transfer_step[chat_id] = "awaiting_target_id"
-        transfer_text = (
-            "💸 **تحويل رصيد من البوت إلى مستخدم آخر:**\n\n"
-            f"💰 رصيدك الحالي: `{current_bal:.2f}$`\n\n"
-            "✍️ أرسل الآن **آيدي (ID) المستخدم** الذي تريد التحويل إليه"
-            " (أرقام فقط)."
-        )
+        bot.answer_callback_query(call.id, "الخدمة تم إيقافها", show_alert=True)
         bot.edit_message_text(
-            transfer_text,
+            "الخدمة تم إيقافها",
             chat_id,
             message_id,
-            parse_mode="Markdown",
             reply_markup=get_back_to_recharge_menu(),
         )
     elif call.data == "bot_balance":
@@ -1363,9 +1351,8 @@ def callback_inline(call):
         bot.answer_callback_query(call.id)
         bot.send_message(
             chat_id,
-            "📩 **الرجاء إرسال صورة إيصال التحويل (Screenshot) مباشرة في هذه"
-            " الدردشة ليقوم البوت بتحويلها إلى الإدارة فوراً ومراجعتها.**",
-            parse_mode="Markdown",
+            "📩 الرجاء إرسال صورة إيصال التحويل (Screenshot) مباشرة في هذه"
+            " الدردشة ليقوم البوت بتحويلها إلى الإدارة فوراً ومراجعتها",
         )
     elif call.data == "confirm_payment":
         bot.answer_callback_query(
@@ -1833,96 +1820,6 @@ def handle_all_messages(message):
                 )
                 return
 
-    # 1.5 خطوات تحويل الرصيد من البوت إلى مستخدم آخر
-    if chat_id in user_transfer_step:
-        step = user_transfer_step[chat_id]
-        text_input = (message.text or "").strip()
-
-        if step == "awaiting_target_id":
-            if not text_input.isdigit():
-                bot.reply_to(
-                    message,
-                    "⚠️ يرجى كتابة **آيدي (ID) رقمي صحيح** للمستخدم المستلم.",
-                    parse_mode="Markdown",
-                )
-                return
-            target_id = int(text_input)
-            if target_id == user_id:
-                bot.reply_to(
-                    message,
-                    "⚠️ لا يمكنك تحويل رصيد إلى نفس حسابك.",
-                    parse_mode="Markdown",
-                )
-                return
-            user_transfer_target[chat_id] = target_id
-            user_transfer_step[chat_id] = "awaiting_amount"
-            bot.reply_to(
-                message,
-                f"✅ تم تحديد المستلم (`{target_id}`).\n"
-                "✍️ أرسل الآن **المبلغ المراد تحويله** (مثال: `5` أو `10.5`).",
-                parse_mode="Markdown",
-            )
-            return
-
-        if step == "awaiting_amount":
-            try:
-                transfer_amount = float(text_input)
-                if transfer_amount <= 0:
-                    raise ValueError
-            except ValueError:
-                bot.reply_to(
-                    message,
-                    "⚠️ يرجى إدخال مبلغ صحيح أكبر من الصفر (مثال: `5` أو"
-                    " `10`).",
-                    parse_mode="Markdown",
-                )
-                return
-
-            sender_bal = user_balances.get(chat_id, 0.0)
-            if sender_bal < transfer_amount:
-                user_transfer_step.pop(chat_id, None)
-                user_transfer_target.pop(chat_id, None)
-                bot.reply_to(
-                    message,
-                    f"❌ **رصيدك غير كافٍ لإتمام التحويل!**\n"
-                    f"💰 رصيدك الحالي: `{sender_bal:.2f}$`\n"
-                    f"💸 المبلغ المطلوب: `{transfer_amount:.2f}$`",
-                    parse_mode="Markdown",
-                )
-                return
-
-            target_id = user_transfer_target.pop(chat_id)
-            user_transfer_step.pop(chat_id, None)
-
-            new_sender_bal = sender_bal - transfer_amount
-            new_target_bal = user_balances.get(target_id, 0.0) + transfer_amount
-
-            user_balances[chat_id] = new_sender_bal
-            user_balances[target_id] = new_target_bal
-            save_balance(chat_id, new_sender_bal)
-            save_balance(target_id, new_target_bal)
-
-            bot.reply_to(
-                message,
-                f"✅ **تم تحويل الرصيد بنجاح!**\n"
-                f"👤 إلى المستخدم: `{target_id}`\n"
-                f"💸 المبلغ المحوّل: `{transfer_amount:.2f}$`\n"
-                f"💰 رصيدك الحالي: `{new_sender_bal:.2f}$`",
-                parse_mode="Markdown",
-            )
-            try:
-                bot.send_message(
-                    target_id,
-                    f"🎉 **تم استلام تحويل رصيد في البوت!**\n"
-                    f"👤 من المستخدم: `{user_id}`\n"
-                    f"➕ المبلغ المستلم: `{transfer_amount:.2f}$`\n"
-                    f"💰 رصيدك الحالي: `{new_target_bal:.2f}$`",
-                    parse_mode="Markdown",
-                )
-            except Exception as e:
-                print(f"خطأ في إرسال إشعار التحويل للمستلم: {e}")
-            return
-
     if user_id == ADMIN_ID:
         return
 
@@ -2031,9 +1928,7 @@ def handle_all_messages(message):
         if user_waiting_for_receipt.get(chat_id, False):
             bot.reply_to(
                 message,
-                "✅ **تم استلام لقطة الشاشة (Screenshot) بنجاح!**\nتم إرسالها"
-                " إلى الإدارة للمراجعة وتأكيد الشحن في حسابك قريباً.",
-                parse_mode="Markdown",
+                "الرجاء الانتظار حتى يتم مراجعة إتمام الدفع",
             )
             user_waiting_for_receipt[chat_id] = False
 
@@ -2065,7 +1960,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
     print(
-        "تم تشغيل البوت بنجاح (الكود رقم 40 - تحديث المنصات الرقمية ومكافأة"
-        " الدعوة 0.25$ وحد النشر 30$)..."
+        "تم تشغيل البوت بنجاح (الكود رقم 41 - تحديث بيانات الدفع وإيقاف"
+        " التحويل)..."
     )
     bot.infinity_polling(timeout=60, long_polling_timeout=60)
