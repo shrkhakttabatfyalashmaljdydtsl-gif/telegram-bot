@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (42) - الجزء الأول (1/2) ====================
+# ==================== الكود رقم (42) - الجزء الأول (1/3) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -1242,8 +1242,7 @@ def apply_platform_update(platform_key, min_amt=None, max_amt=None, addr=None):
     payment_texts[platform_key] = formatted
     save_payment_text(platform_key, formatted)
     return formatted
-
-
+# ==================== الكود رقم (42) - الجزء الثاني (2/3) ====================
 # ==================== أوامر البوت ====================
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
@@ -1523,7 +1522,201 @@ def add_custom_button_command(message):
         bot.reply_to(
             message,
             "⚠️ موقع الزر يجب أن يكون `main` أو `recharge` أو `platforms`"
-            " (قسم المن# ==================== الكود رقم (42) - الجزء الثاني (2/2) ====================
+            " (قسم المنصات).",
+            parse_mode="Markdown",
+        )
+        return
+
+    label = segments[1]
+    target_val = segments[2]
+    action_type = (
+        "url"
+        if (target_val.startswith("http://") or target_val.startswith("https://"))
+        else "text"
+    )
+    btn_key = f"btn_{int(time.time())}_{len(custom_buttons) + 1}"
+
+    custom_buttons[btn_key] = {
+        "menu": menu_loc,
+        "label": label,
+        "action_type": action_type,
+        "action_value": target_val,
+    }
+    save_custom_button(btn_key, menu_loc, label, action_type, target_val)
+
+    bot.reply_to(
+        message,
+        f"✅ **تم إضافة الزر الجديد بنجاح!**\n"
+        f"• المفتاح: `{btn_key}`\n"
+        f"• الاسم: `{label}`\n"
+        f"• القائمة: `{menu_loc}`\n"
+        f"• النوع: `{action_type}`",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(commands=["editbtn"])
+def edit_custom_button_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    raw_body = message.text.split(maxsplit=1)
+    if len(raw_body) < 2:
+        bot.reply_to(
+            message,
+            "⚠️ الصيغة الصحيحة:\n`/editbtn مفتاح_الزر | الاسم الجديد | النص أو"
+            " الرابط الجديد`",
+            parse_mode="Markdown",
+        )
+        return
+    segments = [seg.strip() for seg in raw_body[1].split("|", 2)]
+    if len(segments) < 3 or not segments[1] or not segments[2]:
+        bot.reply_to(message, "⚠️ يرجى إدخال المفتاح والاسم الجديد والتفاصيل.")
+        return
+    btn_key = segments[0]
+    if btn_key not in custom_buttons:
+        bot.reply_to(message, "❌ مفتاح الزر غير موجود. استخدم `/listbtns`.")
+        return
+
+    label = segments[1]
+    target_val = segments[2]
+    action_type = (
+        "url"
+        if (target_val.startswith("http://") or target_val.startswith("https://"))
+        else "text"
+    )
+    menu_loc = custom_buttons[btn_key]["menu"]
+
+    custom_buttons[btn_key] = {
+        "menu": menu_loc,
+        "label": label,
+        "action_type": action_type,
+        "action_value": target_val,
+    }
+    save_custom_button(btn_key, menu_loc, label, action_type, target_val)
+    bot.reply_to(
+        message,
+        f"✅ **تم تحديث الزر `{btn_key}` بنجاح.**",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(commands=["delbtn"])
+def del_custom_button_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(maxsplit=1)
+    if len(parts) < 2 or parts[1].strip() not in custom_buttons:
+        bot.reply_to(
+            message,
+            "⚠️ أرسل مفتاح الزر المراد حذفه. مثال:\n`/delbtn btn_123456_1`",
+            parse_mode="Markdown",
+        )
+        return
+    btn_key = parts[1].strip()
+    custom_buttons.pop(btn_key, None)
+    delete_custom_button(btn_key)
+    bot.reply_to(
+        message, f"✅ **تم حذف الزر `{btn_key}` بنجاح.**", parse_mode="Markdown"
+    )
+
+
+@bot.message_handler(commands=["listbtns"])
+def list_custom_buttons_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    if not custom_buttons:
+        bot.reply_to(message, "ℹ️ لا توجد أزرار مخصصة مضافة حالياً.")
+        return
+    lines = ["📋 **الأزرار المخصصة الحالية:**\n"]
+    for k, v in custom_buttons.items():
+        lines.append(
+            f"• المفتاح: `{k}` | الاسم: `{v['label']}` | القائمة:"
+            f" `{v['menu']}` | النوع: `{v['action_type']}`"
+        )
+    bot.reply_to(message, "\n".join(lines), parse_mode="Markdown")
+
+
+@bot.message_handler(commands=["broadcast"])
+def broadcast_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    register_user(message.from_user.id, message.chat.id)
+    admin_waiting_for_broadcast.add(ADMIN_ID)
+    bot.reply_to(
+        message,
+        "📣 **أرسل الآن الرسالة التي تريد إيصالها إلى جميع المستخدمين.**\n"
+        "*(يمكنك إرسال نص أو صورة مع نص)*\n"
+        "لإلغاء العملية أرسل: `/cancel`",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(commands=["addfolder"])
+def add_folder_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        bot.reply_to(
+            message,
+            "⚠️ يرجى كتابة اسم المجلد مع الأمر. مثال:\n`/addfolder المجلد الرابع`",
+            parse_mode="Markdown",
+        )
+        return
+
+    folder_title = args[1].strip()
+    new_key = f"folder_{len(dynamic_folders) + 1}"
+    folder_name = f"📁 {folder_title}"
+    folder_link = "https://t.me/"
+    dynamic_folders[new_key] = {
+        "name": folder_name,
+        "link": folder_link,
+    }
+    save_folder(new_key, folder_name, folder_link)
+
+    bot.reply_to(
+        message,
+        f"✅ **تم بنجاح إضافة المجلد الجديد:** `{folder_title}`\n"
+        f"لتحديد رابطه، استخدم الأمر:\n`/setfolderlink {new_key}"
+        " رابط_المجلد`",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(commands=["setfolderlink"])
+def set_folder_link_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    args = message.text.split(maxsplit=2)
+    if len(args) < 3:
+        bot.reply_to(
+            message,
+            "⚠️ صيغة الأمر غير صحيحة. مثال:\n`/setfolderlink folder_1"
+            " https://t.me/addlist/xxxxx`",
+            parse_mode="Markdown",
+        )
+        return
+
+    folder_key = args[1].strip()
+    folder_link = args[2].strip()
+
+    if folder_key in dynamic_folders:
+        dynamic_folders[folder_key]["link"] = folder_link
+        folder_name = dynamic_folders[folder_key]["name"]
+        save_folder(folder_key, folder_name, folder_link)
+        bot.reply_to(
+            message,
+            f"✅ **تم تحديث رابط {folder_name} بنجاح!**\nالرابط الجديد:\n`{folder_link}`",
+            parse_mode="Markdown",
+        )
+    else:
+        bot.reply_to(
+            message, "❌ عذراً، معرف المجلد غير موجود. تأكد من الكود (مثل folder_1)."
+        )
+
+
 # ==================== معالجة الأزرار التفاعلية ====================
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
@@ -2286,8 +2479,7 @@ def callback_inline(call):
             bot.edit_message_text(
                 text, chat_id, message_id, reply_markup=get_main_menu()
             )
-
-
+# ==================== الكود رقم (42) - الجزء الثالث والأخير (3/3) ====================
 # ==================== معالجة الدفع بالنجوم ====================
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def checkout(pre_checkout_query):
