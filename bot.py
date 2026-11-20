@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (41) ====================
+# ==================== الكود رقم (42) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -35,6 +35,76 @@ DEFAULT_FOLDERS = {
         "name": "📁 المجلد الثالث",
         "link": "https://t.me/addlist/default3",
     },
+}
+
+DEFAULT_PAYMENT_TEXTS = {
+    "binance": (
+        "🟡 **شحن البوت عبر منصة بينانس (Binance):**\n\n"
+        "اخترت منصة Binance لشحن رصيدك اقل مبلغ شحن 10دولار\n"
+        "• العملة: `USDT`\n"
+        "• الشبكة: `BNB Smart Chain (BEP20)`\n"
+        "• العنوان:\n"
+        "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
+        "بعد إتمام التحويل عبر Binance، اضغط على أرسل الوصل 📤 وأرسل"
+        " صورة الإيصال"
+    ),
+    "okx": (
+        "⚫ **شحن البوت عبر منصة OKX:**\n\n"
+        "شحن 30دولار\n"
+        "• العملة: `USDT`\n"
+        "• الشبكة: `X Layer (USDT&USDT0)`\n"
+        "• العنوان:\n"
+        "`XKOa3E8f6838ffd2230B2e484C402EE3c951Ef5AB99`"
+    ),
+    "trustwallet": (
+        "🔵 **شحن البوت عبر محفظة Trust Wallet:**\n\n"
+        "شحن 30دولار\n"
+        "• العملة: `USDT`\n"
+        "• الشبكة: `BNB Smart Chain (BEP20)`\n"
+        "• العنوان:\n"
+        "`0xa92D1c298f86fCAd3E231D8A2CE91A89c01dFB33`"
+    ),
+    "crypto": (
+        "🪙 **العملات الرقمية:**\n"
+        "📉 أقل مبلغ شحن: 10 دولار\n"
+        "📈 أكثر مبلغ شحن: 200 دولار\n\n"
+        "تدفع هنا 👇🏻\n"
+        "بيانات الإيداع والتحويل الرسمي:\n"
+        "🔹 العملة: USDT\n"
+        "🔹 الشبكة: BNB Smart Chain (BEP20)\n"
+        "🔹 العنوان:\n"
+        "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
+        "⚠️ يرجى التأكد من اختيار شبكة (BEP20) لضمان وصول التحويل.\n"
+        "📸 عند اكتمال الدفع، يرجى إرسال لقطة شاشة (Screenshot) هنا لتوثيق"
+        " وتأكيد العملية للإدارة."
+    ),
+}
+
+DEFAULT_SECTION_TEXTS = {
+    "welcome": (
+        "مرحباً بك يا أخي {name} في بوت التمويل الاحترافي 🚀\n\n"
+        "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
+    ),
+    "how": (
+        "📢 **كيف يكون إعلانك؟ / How does your ad look?**\n\n"
+        "🇪🇬 **العربية:**\n"
+        "إخواني، الكل يتساءل كيف يكون إعلاني؟\n"
+        "الجواب: إعلانك مجرد يتم ترتيب إعلانك ثم الموافقة على تأكيد تفعيل"
+        " الإعلان، يظهر إعلانك في جميع قنوات المجلد كما تشاهدون أمامكم في"
+        " الصورة 📸✨\n\n"
+        "🇬🇧 **English:**\n"
+        "Everyone is wondering how the ad will be displayed?\n"
+        "Answer: Once your ad is arranged and approved, it will appear"
+        " across all folder channels as shown in the pictures 📸✨"
+    ),
+    "contact": (
+        "🔄 **التواصل والدعم الفني:**\n\n"
+        "💬 أهلاً بك يا غالي في مركز خدمة العملاء والدعم.\n"
+        "الرجاء إرسال رسالتك أو استفسارك الآن في هذه الدردشة، وسيتم"
+        " إرسالها فوراً إلى طاقم الإدارة والدعم الفني، وسيتم الرد عليك في"
+        " أقرب وقت ممكن عند تواجدنا.\n\n"
+        "✍️ **اكتب رسالتك الآن وأرسلها في الشات:**"
+    ),
 }
 
 BOT_USERNAME_CACHE = None
@@ -103,6 +173,27 @@ def init_db():
             )
             """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS payment_texts (
+                platform_key TEXT PRIMARY KEY,
+                content TEXT NOT NULL
+            )
+            """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS section_texts (
+                section_key TEXT PRIMARY KEY,
+                content TEXT NOT NULL
+            )
+            """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS custom_buttons (
+                btn_key TEXT PRIMARY KEY,
+                menu_location TEXT NOT NULL,
+                label TEXT NOT NULL,
+                action_type TEXT NOT NULL,
+                action_value TEXT NOT NULL
+            )
+            """)
+        conn.execute("""
             INSERT OR IGNORE INTO ratings_summary (id, positive, negative)
             VALUES (1, 53, 11)
             """)
@@ -113,6 +204,22 @@ def init_db():
                 VALUES (?, ?, ?)
                 """,
                 (key, data["name"], data["link"]),
+            )
+        for p_key, p_text in DEFAULT_PAYMENT_TEXTS.items():
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO payment_texts (platform_key, content)
+                VALUES (?, ?)
+                """,
+                (p_key, p_text),
+            )
+        for s_key, s_text in DEFAULT_SECTION_TEXTS.items():
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO section_texts (section_key, content)
+                VALUES (?, ?)
+                """,
+                (s_key, s_text),
             )
         conn.execute("""
             INSERT OR IGNORE INTO bot_settings (key, value)
@@ -289,10 +396,104 @@ def save_ad_photo(photo_file_id):
         conn.commit()
 
 
+def load_payment_texts():
+    texts = dict(DEFAULT_PAYMENT_TEXTS)
+    with sqlite3.connect(DB_PATH) as conn:
+        for key, content in conn.execute(
+            "SELECT platform_key, content FROM payment_texts"
+        ):
+            texts[key] = content
+    return texts
+
+
+def save_payment_text(platform_key, content):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO payment_texts (platform_key, content)
+            VALUES (?, ?)
+            ON CONFLICT(platform_key) DO UPDATE SET content = excluded.content
+            """,
+            (platform_key, content),
+        )
+        conn.commit()
+
+
+def load_section_texts():
+    texts = dict(DEFAULT_SECTION_TEXTS)
+    with sqlite3.connect(DB_PATH) as conn:
+        for key, content in conn.execute(
+            "SELECT section_key, content FROM section_texts"
+        ):
+            texts[key] = content
+    return texts
+
+
+def save_section_text(section_key, content):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO section_texts (section_key, content)
+            VALUES (?, ?)
+            ON CONFLICT(section_key) DO UPDATE SET content = excluded.content
+            """,
+            (section_key, content),
+        )
+        conn.commit()
+
+
+def load_custom_buttons():
+    buttons = {}
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute(
+            """
+            SELECT btn_key, menu_location, label, action_type, action_value
+            FROM custom_buttons
+            ORDER BY btn_key
+            """
+        )
+        for btn_key, menu_location, label, action_type, action_value in cursor.fetchall():
+            buttons[btn_key] = {
+                "menu": menu_location,
+                "label": label,
+                "action_type": action_type,
+                "action_value": action_value,
+            }
+    return buttons
+
+
+def save_custom_button(btn_key, menu_location, label, action_type, action_value):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO custom_buttons
+            (btn_key, menu_location, label, action_type, action_value)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(btn_key) DO UPDATE SET
+                menu_location = excluded.menu_location,
+                label = excluded.label,
+                action_type = excluded.action_type,
+                action_value = excluded.action_value
+            """,
+            (btn_key, menu_location, label, action_type, action_value),
+        )
+        conn.commit()
+
+
+def delete_custom_button(btn_key):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM custom_buttons WHERE btn_key = ?", (btn_key,))
+        conn.commit()
+
+
 init_db()
 
 # المتغيرات الأساسية المحملة من قاعدة البيانات
 current_ad_photo = load_ad_photo()
+payment_texts = load_payment_texts()
+section_texts = load_section_texts()
+custom_buttons = load_custom_buttons()
+
 user_waiting_for_receipt = {}
 admin_waiting_for_amount = {}
 admin_waiting_for_broadcast = set()
@@ -322,10 +523,14 @@ def get_display_name(user):
 
 def build_welcome_text(user):
     person_name = get_display_name(user)
-    return (
-        f"مرحباً بك يا أخي {person_name} في بوت التمويل الاحترافي 🚀\n\n"
-        "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
-    )
+    template = section_texts.get("welcome", DEFAULT_SECTION_TEXTS["welcome"])
+    try:
+        return template.format(name=person_name)
+    except Exception:
+        return (
+            f"مرحباً بك يا أخي {person_name} في بوت التمويل الاحترافي 🚀\n\n"
+            "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
+        )
 
 
 def build_invite_text(user_id):
@@ -412,6 +617,13 @@ def build_completed_ads_report():
 dynamic_folders = load_folders()
 
 
+def build_custom_inline_button(btn_key, btn_data):
+    label = btn_data["label"]
+    if btn_data["action_type"] == "url":
+        return InlineKeyboardButton(label, url=btn_data["action_value"])
+    return InlineKeyboardButton(label, callback_data=f"cbtn_{btn_key}")
+
+
 # ==================== الأزرار الرئيسية ====================
 def get_main_menu():
     keyboard = InlineKeyboardMarkup()
@@ -432,6 +644,14 @@ def get_main_menu():
     ]
     for i in range(0, len(folder_buttons), 2):
         keyboard.row(*folder_buttons[i : i + 2])
+
+    main_custom = [
+        build_custom_inline_button(k, v)
+        for k, v in custom_buttons.items()
+        if v["menu"] == "main"
+    ]
+    for i in range(0, len(main_custom), 2):
+        keyboard.row(*main_custom[i : i + 2])
 
     keyboard.row(
         InlineKeyboardButton("تقييم المستخدمين ⭐", callback_data="user_ratings"),
@@ -467,6 +687,15 @@ def get_sub_menu_with_payment():
             callback_data="transfer_balance",
         )
     )
+
+    recharge_custom = [
+        build_custom_inline_button(k, v)
+        for k, v in custom_buttons.items()
+        if v["menu"] == "recharge"
+    ]
+    for i in range(0, len(recharge_custom), 2):
+        keyboard.row(*recharge_custom[i : i + 2])
+
     keyboard.row(
         InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="back_to_main")
     )
@@ -765,6 +994,286 @@ def send_welcome(message):
     bot.send_message(chat_id, text, reply_markup=get_main_menu())
 
 
+@bot.message_handler(commands=["adminhelp"])
+def admin_help_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    help_text = (
+        "🛠️ **دليل أوامر الإدارة والتحكم اليدوي الكامل:**\n\n"
+        "1️⃣ **إدارة الأرصدة:**\n"
+        "• `/setbalance ID المبلغ` — تعيين رصيد محدد\n"
+        "• `/addbalance ID المبلغ` — إضافة رصيد\n"
+        "• `/subbalance ID المبلغ` — خصم رصيد\n\n"
+        "2️⃣ **إدارة بيانات الدفع والأقسام:**\n"
+        "• `/setpay binance|okx|trustwallet|crypto النص` — تعديل بيانات"
+        " الدفع\n"
+        "• `/settext welcome|how|contact | النص الجديد` — تعديل نصوص"
+        " الأقسام\n\n"
+        "3️⃣ **إضافة وتوسيع الأزرار وتفاصيلها:**\n"
+        "• `/addbtn main|recharge | اسم الزر | النص أو الرابط` — إضافة زر"
+        " جديد\n"
+        "• `/editbtn مفتاح_الزر | الاسم الجديد | النص أو الرابط` — تعديل زر\n"
+        "• `/delbtn مفتاح_الزر` — حذف زر مخصص\n"
+        "• `/listbtns` — عرض مفاتيح الأزرار المخصصة\n\n"
+        "4️⃣ **المجلدات والإرسال الجماعي:**\n"
+        "• `/addfolder اسم_المجلد`\n"
+        "• `/setfolderlink folder_1 الرابط`\n"
+        "• `/broadcast`"
+    )
+    bot.reply_to(message, help_text, parse_mode="Markdown")
+
+
+@bot.message_handler(commands=["setbalance", "addbalance", "subbalance"])
+def manage_user_balance_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split()
+    cmd = parts[0].lstrip("/").split("@")[0]
+    if len(parts) < 3:
+        bot.reply_to(
+            message,
+            f"⚠️ الصيغة الصحيحة: `/{cmd} ID المبلغ`\nمثال: `/{cmd} 7004113433 50`",
+            parse_mode="Markdown",
+        )
+        return
+    if not parts[1].isdigit():
+        bot.reply_to(message, "⚠️ يرجى إدخال آيدي (ID) رقمي صحيح للمستخدم.")
+        return
+    try:
+        amount = float(parts[2])
+    except ValueError:
+        bot.reply_to(message, "⚠️ يرجى إدخال مبلغ رقمي صحيح.")
+        return
+
+    target_id = int(parts[1])
+    current_bal = user_balances.get(target_id, 0.0)
+    if cmd == "setbalance":
+        new_bal = amount
+    elif cmd == "addbalance":
+        new_bal = current_bal + amount
+    else:
+        new_bal = max(0.0, current_bal - amount)
+
+    user_balances[target_id] = new_bal
+    save_balance(target_id, new_bal)
+    bot.reply_to(
+        message,
+        f"✅ **تم تحديث رصيد المستخدم (`{target_id}`)**\n"
+        f"• الرصيد السابق: `{current_bal:.2f}$`\n"
+        f"• الرصيد الحالي: `{new_bal:.2f}$`",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(commands=["setpay"])
+def set_payment_text_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(maxsplit=2)
+    if len(parts) < 3:
+        bot.reply_to(
+            message,
+            "⚠️ الصيغة الصحيحة:\n`/setpay binance|okx|trustwallet|crypto النص"
+            " الجديد`",
+            parse_mode="Markdown",
+        )
+        return
+    p_key = parts[1].strip().lower()
+    if p_key not in DEFAULT_PAYMENT_TEXTS:
+        bot.reply_to(
+            message,
+            "⚠️ المنصة يجب أن تكون إحدى القيم التالية: `binance` أو `okx` أو"
+            " `trustwallet` أو `crypto`.",
+            parse_mode="Markdown",
+        )
+        return
+    new_content = parts[2]
+    payment_texts[p_key] = new_content
+    save_payment_text(p_key, new_content)
+    bot.reply_to(
+        message,
+        f"✅ **تم تحديث بيانات الدفع لقسم `{p_key}` وحفظها في قاعدة"
+        " البيانات.**",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(commands=["settext"])
+def set_section_text_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    raw_body = message.text.split(maxsplit=1)
+    if len(raw_body) < 2 or "|" not in raw_body[1]:
+        bot.reply_to(
+            message,
+            "⚠️ الصيغة الصحيحة:\n`/settext welcome|how|contact | النص"
+            " الجديد`\n*(يمكنك استخدام `{name}` داخل نص الترحيب لإدراج اسم"
+            " المستخدم)*",
+            parse_mode="Markdown",
+        )
+        return
+    left, new_content = raw_body[1].split("|", 1)
+    s_key = left.strip().lower()
+    new_content = new_content.strip()
+    if s_key not in DEFAULT_SECTION_TEXTS or not new_content:
+        bot.reply_to(
+            message,
+            "⚠️ القسم غير صحيح. استخدم `welcome` أو `how` أو `contact` متبوعاً"
+            " بـ `|` ثم النص.",
+            parse_mode="Markdown",
+        )
+        return
+    section_texts[s_key] = new_content
+    save_section_text(s_key, new_content)
+    bot.reply_to(
+        message,
+        f"✅ **تم تحديث نص قسم `{s_key}` بنجاح.**",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(commands=["addbtn"])
+def add_custom_button_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    raw_body = message.text.split(maxsplit=1)
+    if len(raw_body) < 2:
+        bot.reply_to(
+            message,
+            "⚠️ الصيغة الصحيحة:\n"
+            "`/addbtn main|recharge | اسم الزر | النص الذي يظهر عند الضغط أو"
+            " الرابط https://...`",
+            parse_mode="Markdown",
+        )
+        return
+    segments = [seg.strip() for seg in raw_body[1].split("|", 2)]
+    if len(segments) < 3 or not segments[1] or not segments[2]:
+        bot.reply_to(
+            message,
+            "⚠️ تأكد من كتابة الموقع (`main` أو `recharge`) واسم الزر والتفاصيل"
+            " مفصولة بـ `|`.",
+            parse_mode="Markdown",
+        )
+        return
+    menu_loc = segments[0].lower()
+    if menu_loc not in ("main", "recharge"):
+        bot.reply_to(
+            message,
+            "⚠️ موقع الزر يجب أن يكون `main` (القائمة الرئيسية) أو `recharge`"
+            " (شحن البوت).",
+            parse_mode="Markdown",
+        )
+        return
+
+    label = segments[1]
+    target_val = segments[2]
+    action_type = (
+        "url"
+        if (target_val.startswith("http://") or target_val.startswith("https://"))
+        else "text"
+    )
+    btn_key = f"btn_{int(time.time())}_{len(custom_buttons) + 1}"
+
+    custom_buttons[btn_key] = {
+        "menu": menu_loc,
+        "label": label,
+        "action_type": action_type,
+        "action_value": target_val,
+    }
+    save_custom_button(btn_key, menu_loc, label, action_type, target_val)
+
+    bot.reply_to(
+        message,
+        f"✅ **تم إضافة الزر الجديد بنجاح!**\n"
+        f"• المفتاح: `{btn_key}`\n"
+        f"• الاسم: `{label}`\n"
+        f"• القائمة: `{menu_loc}`\n"
+        f"• النوع: `{action_type}`",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(commands=["editbtn"])
+def edit_custom_button_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    raw_body = message.text.split(maxsplit=1)
+    if len(raw_body) < 2:
+        bot.reply_to(
+            message,
+            "⚠️ الصيغة الصحيحة:\n`/editbtn مفتاح_الزر | الاسم الجديد | النص أو"
+            " الرابط الجديد`",
+            parse_mode="Markdown",
+        )
+        return
+    segments = [seg.strip() for seg in raw_body[1].split("|", 2)]
+    if len(segments) < 3 or not segments[1] or not segments[2]:
+        bot.reply_to(message, "⚠️ يرجى إدخال المفتاح والاسم الجديد والتفاصيل.")
+        return
+    btn_key = segments[0]
+    if btn_key not in custom_buttons:
+        bot.reply_to(message, "❌ مفتاح الزر غير موجود. استخدم `/listbtns`.")
+        return
+
+    label = segments[1]
+    target_val = segments[2]
+    action_type = (
+        "url"
+        if (target_val.startswith("http://") or target_val.startswith("https://"))
+        else "text"
+    )
+    menu_loc = custom_buttons[btn_key]["menu"]
+
+    custom_buttons[btn_key] = {
+        "menu": menu_loc,
+        "label": label,
+        "action_type": action_type,
+        "action_value": target_val,
+    }
+    save_custom_button(btn_key, menu_loc, label, action_type, target_val)
+    bot.reply_to(
+        message,
+        f"✅ **تم تحديث الزر `{btn_key}` بنجاح.**",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(commands=["delbtn"])
+def del_custom_button_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    parts = message.text.split(maxsplit=1)
+    if len(parts) < 2 or parts[1].strip() not in custom_buttons:
+        bot.reply_to(
+            message,
+            "⚠️ أرسل مفتاح الزر المراد حذفه. مثال:\n`/delbtn btn_123456_1`",
+            parse_mode="Markdown",
+        )
+        return
+    btn_key = parts[1].strip()
+    custom_buttons.pop(btn_key, None)
+    delete_custom_button(btn_key)
+    bot.reply_to(
+        message, f"✅ **تم حذف الزر `{btn_key}` بنجاح.**", parse_mode="Markdown"
+    )
+
+
+@bot.message_handler(commands=["listbtns"])
+def list_custom_buttons_command(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    if not custom_buttons:
+        bot.reply_to(message, "ℹ️ لا توجد أزرار مخصصة مضافة حالياً.")
+        return
+    lines = ["📋 **الأزرار المخصصة الحالية:**\n"]
+    for k, v in custom_buttons.items():
+        lines.append(
+            f"• المفتاح: `{k}` | الاسم: `{v['label']}` | القائمة:"
+            f" `{v['menu']}` | النوع: `{v['action_type']}`"
+        )
+    bot.reply_to(message, "\n".join(lines), parse_mode="Markdown")
+
+
 @bot.message_handler(commands=["broadcast"])
 def broadcast_command(message):
     if message.from_user.id != ADMIN_ID:
@@ -854,6 +1363,26 @@ def callback_inline(call):
     user_id = call.from_user.id
     register_user(user_id, chat_id)
 
+    if call.data.startswith("cbtn_"):
+        btn_key = call.data.replace("cbtn_", "", 1)
+        btn_info = custom_buttons.get(btn_key)
+        if not btn_info:
+            bot.answer_callback_query(call.id, "هذا الزر غير متاح حالياً.")
+            return
+        back_markup = (
+            get_back_to_recharge_menu()
+            if btn_info["menu"] == "recharge"
+            else get_back_to_main_menu_only()
+        )
+        bot.edit_message_text(
+            btn_info["action_value"],
+            chat_id,
+            message_id,
+            parse_mode="Markdown",
+            reply_markup=back_markup,
+        )
+        return
+
     if call.data == "recharge_bot":
         clear_user_states(chat_id)
         bot.edit_message_text(
@@ -881,18 +1410,8 @@ def callback_inline(call):
         )
     elif call.data == "platform_binance":
         clear_user_states(chat_id)
-        binance_text = (
-            "🟡 **شحن البوت عبر منصة بينانس (Binance):**\n\n"
-            "اخترت منصة Binance لشحن رصيدك اقل مبلغ شحن 10دولار\n"
-            "• العملة: `USDT`\n"
-            "• الشبكة: `BNB Smart Chain (BEP20)`\n"
-            "• العنوان:\n"
-            "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
-            "بعد إتمام التحويل عبر Binance، اضغط على أرسل الوصل 📤 وأرسل"
-            " صورة الإيصال"
-        )
         bot.edit_message_text(
-            binance_text,
+            payment_texts.get("binance", DEFAULT_PAYMENT_TEXTS["binance"]),
             chat_id,
             message_id,
             parse_mode="Markdown",
@@ -900,16 +1419,8 @@ def callback_inline(call):
         )
     elif call.data == "platform_okx":
         clear_user_states(chat_id)
-        okx_text = (
-            "⚫ **شحن البوت عبر منصة OKX:**\n\n"
-            "شحن 30دولار\n"
-            "• العملة: `USDT`\n"
-            "• الشبكة: `X Layer (USDT&USDT0)`\n"
-            "• العنوان:\n"
-            "`XKOa3E8f6838ffd2230B2e484C402EE3c951Ef5AB99`"
-        )
         bot.edit_message_text(
-            okx_text,
+            payment_texts.get("okx", DEFAULT_PAYMENT_TEXTS["okx"]),
             chat_id,
             message_id,
             parse_mode="Markdown",
@@ -917,16 +1428,10 @@ def callback_inline(call):
         )
     elif call.data == "platform_trustwallet":
         clear_user_states(chat_id)
-        tw_text = (
-            "🔵 **شحن البوت عبر محفظة Trust Wallet:**\n\n"
-            "شحن 30دولار\n"
-            "• العملة: `USDT`\n"
-            "• الشبكة: `BNB Smart Chain (BEP20)`\n"
-            "• العنوان:\n"
-            "`0xa92D1c298f86fCAd3E231D8A2CE91A89c01dFB33`"
-        )
         bot.edit_message_text(
-            tw_text,
+            payment_texts.get(
+                "trustwallet", DEFAULT_PAYMENT_TEXTS["trustwallet"]
+            ),
             chat_id,
             message_id,
             parse_mode="Markdown",
@@ -1038,18 +1543,7 @@ def callback_inline(call):
         global current_ad_photo
         clear_user_states(chat_id)
 
-        how_text = (
-            "📢 **كيف يكون إعلانك؟ / How does your ad look?**\n\n"
-            "🇪🇬 **العربية:**\n"
-            "إخواني، الكل يتساءل كيف يكون إعلاني؟\n"
-            "الجواب: إعلانك مجرد يتم ترتيب إعلانك ثم الموافقة على تأكيد تفعيل"
-            " الإعلان، يظهر إعلانك في جميع قنوات المجلد كما تشاهدون أمامكم في"
-            " الصورة 📸✨\n\n"
-            "🇬🇧 **English:**\n"
-            "Everyone is wondering how the ad will be displayed?\n"
-            "Answer: Once your ad is arranged and approved, it will appear"
-            " across all folder channels as shown in the pictures 📸✨"
-        )
+        how_text = section_texts.get("how", DEFAULT_SECTION_TEXTS["how"])
 
         try:
             bot.delete_message(chat_id, message_id)
@@ -1192,13 +1686,8 @@ def callback_inline(call):
     elif call.data == "extra_contact":
         clear_user_states(chat_id)
         user_waiting_for_support_message[chat_id] = True
-        contact_msg = (
-            "🔄 **التواصل والدعم الفني:**\n\n"
-            "💬 أهلاً بك يا غالي في مركز خدمة العملاء والدعم.\n"
-            "الرجاء إرسال رسالتك أو استفسارك الآن في هذه الدردشة، وسيتم"
-            " إرسالها فوراً إلى طاقم الإدارة والدعم الفني، وسيتم الرد عليك في"
-            " أقرب وقت ممكن عند تواجدنا.\n\n"
-            "✍️ **اكتب رسالتك الآن وأرسلها في الشات:**"
+        contact_msg = section_texts.get(
+            "contact", DEFAULT_SECTION_TEXTS["contact"]
         )
         bot.edit_message_text(
             contact_msg,
@@ -1264,22 +1753,8 @@ def callback_inline(call):
         user_waiting_for_receipt[chat_id] = False
         user_transfer_step.pop(chat_id, None)
         user_transfer_target.pop(chat_id, None)
-        crypto_text = (
-            "🪙 **العملات الرقمية:**\n"
-            "📉 أقل مبلغ شحن: 10 دولار\n"
-            "📈 أكثر مبلغ شحن: 200 دولار\n\n"
-            "تدفع هنا 👇🏻\n"
-            "بيانات الإيداع والتحويل الرسمي:\n"
-            "🔹 العملة: USDT\n"
-            "🔹 الشبكة: BNB Smart Chain (BEP20)\n"
-            "🔹 العنوان:\n"
-            "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
-            "⚠️ يرجى التأكد من اختيار شبكة (BEP20) لضمان وصول التحويل.\n"
-            "📸 عند اكتمال الدفع، يرجى إرسال لقطة شاشة (Screenshot) هنا لتوثيق"
-            " وتأكيد العملية للإدارة."
-        )
         bot.edit_message_text(
-            crypto_text,
+            payment_texts.get("crypto", DEFAULT_PAYMENT_TEXTS["crypto"]),
             chat_id,
             message_id,
             parse_mode="Markdown",
@@ -1960,7 +2435,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
     print(
-        "تم تشغيل البوت بنجاح (الكود رقم 41 - تحديث بيانات الدفع وإيقاف"
-        " التحويل)..."
+        "تم تشغيل البوت بنجاح (الكود رقم 42 - أوامر التحكم اليدوي وتوسيع"
+        " الأزرار وتفاصيلها)..."
     )
     bot.infinity_polling(timeout=60, long_polling_timeout=60)
