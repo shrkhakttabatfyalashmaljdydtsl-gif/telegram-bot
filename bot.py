@@ -1182,8 +1182,8 @@ def get_ratings_menu(has_voted=False):
     keyboard = InlineKeyboardMarkup()
     if not has_voted:
         keyboard.row(
-            InlineKeyboardButton("الزر الأخضر", callback_data="rate_positive"),
-            InlineKeyboardButton("الزر الاحمر", callback_data="rate_negative"),
+            InlineKeyboardButton("🟢الإيجابي", callback_data="rate_positive"),
+            InlineKeyboardButton("🔴السلبي", callback_data="rate_negative"),
         )
     keyboard.row(
         InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="back_to_main")
