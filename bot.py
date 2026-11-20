@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (39) ====================
+# ==================== الكود رقم (40) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -13,8 +13,11 @@ bot = telebot.TeleBot(TOKEN)
 # الآيدي الخاص بك كإدارة
 ADMIN_ID = 7004113433
 
-# مكافأة الدعوة لكل مستخدم جديد ينضم عبر رابط الدعوة
-REFERRAL_REWARD = float(os.getenv("REFERRAL_REWARD", "1.0"))
+# مكافأة الدعوة لكل مستخدم جديد ينضم عبر رابط الدعوة (25 سنت = 0.25$)
+REFERRAL_REWARD = float(os.getenv("REFERRAL_REWARD", "0.25"))
+
+# الحد المسموح من الرصيد للسماح بنشر إعلان عبر رصيد الدعوة/البوت
+MIN_REFERRAL_AD_BALANCE = float(os.getenv("MIN_REFERRAL_AD_BALANCE", "30.0"))
 
 # مسار ملف قاعدة البيانات لحفظ بيانات البوت بشكل دائم
 DB_PATH = os.getenv("DB_PATH", "bot_data.db")
@@ -328,6 +331,7 @@ def build_welcome_text(user):
 def build_invite_text(user_id):
     inviter_count, inviter_earned = get_referral_stats(user_id)
     current_bal = user_balances.get(user_id, 0.0)
+    remaining = max(0.0, MIN_REFERRAL_AD_BALANCE - current_bal)
     bot_username = get_bot_username()
     if bot_username:
         invite_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
@@ -341,12 +345,15 @@ def build_invite_text(user_id):
         "🎁 **تجميع رصيد عبر رابط دعوة:**\n\n"
         "شارك رابط دعوتك مع أصدقائك أو قنواتك، وعند دخول مستخدم جديد عبر"
         " الرابط لأول مرة يُضاف إلى رصيدك تلقائياً:\n"
-        f"💵 مكافأة كل دعوة ناجحة: `{REFERRAL_REWARD:.2f}$`\n\n"
+        f"💵 مكافأة كل دعوة ناجحة: `{REFERRAL_REWARD:.2f}$`\n"
+        "🎯 الحد المسموح بعد جمع الرصيد ليتم السماح لك بنشر إعلانك:"
+        f" `{MIN_REFERRAL_AD_BALANCE:.2f}$`\n\n"
         f"{link_block}"
         "📊 **إحصائيات دعواتك:**\n"
         f"• عدد المدعوين: `{inviter_count}`\n"
         f"• الأرباح من الدعوات: `{inviter_earned:.2f}$`\n"
-        f"• رصيدك الحالي: `{current_bal:.2f}$`"
+        f"• رصيدك الحالي: `{current_bal:.2f}$`\n"
+        f"• المتبقي للوصول إلى حد النشر: `{remaining:.2f}$`"
     )
 
 
@@ -462,6 +469,44 @@ def get_sub_menu_with_payment():
     )
     keyboard.row(
         InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="back_to_main")
+    )
+    return keyboard
+
+
+def get_all_platforms_menu():
+    keyboard = InlineKeyboardMarkup()
+    keyboard.row(
+        InlineKeyboardButton("منصة بينانس Binance", callback_data="platform_binance")
+    )
+    keyboard.row(
+        InlineKeyboardButton("منصة OKX", callback_data="platform_okx")
+    )
+    keyboard.row(
+        InlineKeyboardButton(
+            "منصة Trust Wallet", callback_data="platform_trustwallet"
+        )
+    )
+    return keyboard
+
+
+def get_platform_details_menu():
+    keyboard = InlineKeyboardMarkup()
+    keyboard.row(
+        InlineKeyboardButton("أرسل الوصل 📤", callback_data="send_receipt")
+    )
+    keyboard.row(
+        InlineKeyboardButton(
+            "🔙 رجوع إلى طرق الدفع", callback_data="recharge_bot"
+        )
+    )
+    return keyboard
+
+
+def get_invite_actions_menu():
+    keyboard = InlineKeyboardMarkup()
+    keyboard.row(
+        InlineKeyboardButton("نشر إعلانك 📢", callback_data="publish_ad_from_invite"),
+        InlineKeyboardButton("رجوع 🔙", callback_data="recharge_bot"),
     )
     return keyboard
 
@@ -822,17 +867,74 @@ def callback_inline(call):
         clear_user_states(chat_id)
         platforms_text = (
             "🌐 **دفع عبر جميع المنصات الرقمية:**\n\n"
-            "يمكنك إتمام عملية الدفع أو التواصل مع الإدارة لإرسال رابط أو"
-            " وسيلة الدفع المناسبة لك عبر المنصات الرقمية المتاحة.\n"
-            "📸 بعد إتمام الدفع، يمكنك إرسال لقطة الشاشة (Screenshot) أو"
-            " التواصل مع الدعم الفني لتأكيد رصيدك."
+            "اختار المنصة التي تريد شحن البوت منها، واختر من الأسفل أحد أزرار"
+            " المنصات المذكورة.\n"
+            "📸 بعد إتمام التحويل، يمكنك إرسال لقطة الشاشة (Screenshot) لتأكيد"
+            " شحن رصيدك."
         )
         bot.edit_message_text(
             platforms_text,
             chat_id,
             message_id,
             parse_mode="Markdown",
-            reply_markup=get_back_to_recharge_menu(),
+            reply_markup=get_all_platforms_menu(),
+        )
+    elif call.data == "platform_binance":
+        clear_user_states(chat_id)
+        binance_text = (
+            "🟡 **شحن البوت عبر منصة بينانس (Binance):**\n\n"
+            "اخترت منصة **Binance** لشحن رصيدك.\n"
+            "• العملة: `USDT`\n"
+            "• الشبكة: `BNB Smart Chain (BEP20)`\n"
+            "• العنوان:\n"
+            "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
+            "بعد إتمام التحويل عبر Binance، اضغط على **أرسل الوصل 📤** وأرسل"
+            " صورة الإيصال."
+        )
+        bot.edit_message_text(
+            binance_text,
+            chat_id,
+            message_id,
+            parse_mode="Markdown",
+            reply_markup=get_platform_details_menu(),
+        )
+    elif call.data == "platform_okx":
+        clear_user_states(chat_id)
+        okx_text = (
+            "⚫ **شحن البوت عبر منصة OKX:**\n\n"
+            "اخترت منصة **OKX** لشحن رصيدك.\n"
+            "• العملة: `USDT`\n"
+            "• الشبكة: `BNB Smart Chain (BEP20)`\n"
+            "• العنوان:\n"
+            "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
+            "بعد إتمام التحويل عبر OKX، اضغط على **أرسل الوصل 📤** وأرسل"
+            " صورة الإيصال."
+        )
+        bot.edit_message_text(
+            okx_text,
+            chat_id,
+            message_id,
+            parse_mode="Markdown",
+            reply_markup=get_platform_details_menu(),
+        )
+    elif call.data == "platform_trustwallet":
+        clear_user_states(chat_id)
+        tw_text = (
+            "🔵 **شحن البوت عبر محفظة Trust Wallet:**\n\n"
+            "اخترت **Trust Wallet** لشحن رصيدك.\n"
+            "• العملة: `USDT`\n"
+            "• الشبكة: `BNB Smart Chain (BEP20)`\n"
+            "• العنوان:\n"
+            "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
+            "بعد إتمام التحويل عبر Trust Wallet، اضغط على **أرسل الوصل 📤**"
+            " وأرسل صورة الإيصال."
+        )
+        bot.edit_message_text(
+            tw_text,
+            chat_id,
+            message_id,
+            parse_mode="Markdown",
+            reply_markup=get_platform_details_menu(),
         )
     elif call.data == "invite_earn":
         clear_user_states(chat_id)
@@ -841,7 +943,52 @@ def callback_inline(call):
             chat_id,
             message_id,
             parse_mode="Markdown",
-            reply_markup=get_back_to_recharge_menu(),
+            reply_markup=get_invite_actions_menu(),
+        )
+    elif call.data == "publish_ad_from_invite":
+        clear_user_states(chat_id)
+        current_bal = user_balances.get(chat_id, 0.0)
+        if current_bal < MIN_REFERRAL_AD_BALANCE:
+            remaining = MIN_REFERRAL_AD_BALANCE - current_bal
+            bot.answer_callback_query(
+                call.id,
+                "رصيدك غير كافي لنشر إعلانك بعد!",
+                show_alert=True,
+            )
+            insufficient_invite_text = (
+                "❌ **رصيدك غير كافي لنشر إعلانك!**\n\n"
+                f"💰 رصيدك الحالي: `{current_bal:.2f}$`\n"
+                "🎯 الحد المسموح بعد جمع الرصيد للسماح بنشر إعلانك:"
+                f" `{MIN_REFERRAL_AD_BALANCE:.2f}$`\n"
+                f"⏳ المبلغ المتبقي لك: `{remaining:.2f}$`\n\n"
+                "استمر في مشاركة رابط دعوتك لجمع الرصيد أو اشحن رصيدك للبدء"
+                " بنشر إعلانك."
+            )
+            bot.edit_message_text(
+                insufficient_invite_text,
+                chat_id,
+                message_id,
+                parse_mode="Markdown",
+                reply_markup=get_invite_actions_menu(),
+            )
+            return
+
+        user_waiting_for_ad_details[chat_id] = True
+        ad_instructions = (
+            "📢 **نشر إعلانك الآن:**\n\n"
+            "الرجاء إرسال منشور إعلانك متضمناً:\n"
+            "1️⃣ **اسم القناة**\n"
+            "2️⃣ **رابط القناة العام**\n"
+            "3️⃣ **صورة الإعلان**\n\n"
+            "*(أرسلهم في رسالة واحدة (صورة مع تعليق/caption) وسيقوم البوت"
+            " باستلامها فوراً)*"
+        )
+        bot.edit_message_text(
+            ad_instructions,
+            chat_id,
+            message_id,
+            parse_mode="Markdown",
+            reply_markup=get_back_to_main_menu_only(),
         )
     elif call.data == "transfer_balance":
         clear_user_states(chat_id)
@@ -1918,7 +2065,7 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
     print(
-        "تم تشغيل البوت بنجاح (الكود رقم 39 - إضافة أمر الإرسال الجماعي"
-        " /broadcast للأدمن)..."
+        "تم تشغيل البوت بنجاح (الكود رقم 40 - تحديث المنصات الرقمية ومكافأة"
+        " الدعوة 0.25$ وحد النشر 30$)..."
     )
     bot.infinity_polling(timeout=60, long_polling_timeout=60)
