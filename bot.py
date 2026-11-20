@@ -6,13 +6,20 @@ from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (42) - الجزء الأول (1/3) ====================
+# ==================== الكود رقم (42) - القسم الأول (1/3) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
 
 # الآيدي الخاص بك كإدارة
 ADMIN_ID = 7004113433
+
+# قناة الاشتراك الإجباري ورابط الدعوة الخاص بها
+FORCE_SUB_CHANNEL_URL = os.getenv(
+    "FORCE_SUB_CHANNEL_URL", "https://t.me/+UQhgt5tMV5Y2MGE0"
+)
+# يمكنك وضع معرف القناة مثل @channel_username أو آيدي القناة -100... للتحقق التلقائي عبر API
+FORCE_SUB_CHANNEL_CHAT = os.getenv("FORCE_SUB_CHANNEL_CHAT", "").strip()
 
 # مكافأة الدعوة لكل مستخدم جديد ينضم عبر رابط الدعوة (25 سنت = 0.25$)
 REFERRAL_REWARD = float(os.getenv("REFERRAL_REWARD", "0.25"))
@@ -118,11 +125,17 @@ DEFAULT_PAYMENT_TEXTS = {
     ),
 }
 
+WELCOME_TERMS_TEXT = (
+    "📜 شروط وأحكام استخدام البوت الإعلاني\n"
+    "1. طبيعة الخدمة وآلية النشر\n"
+    "هذا البوت هو منصة تقنية لتقديم خدمات النشر والتمويل الإعلاني فقط.\n"
+    "يتم نشر إعلانك داخل جميع القنوات التابعة للمجلد الذي تختاره.\n"
+    "لكل مجلد محتوى خاص به؛ يُرجى مراجعة محتوى المجلد والتأكد عبر الازرار"
+    " 👇🏻"
+)
+
 DEFAULT_SECTION_TEXTS = {
-    "welcome": (
-        "مرحباً بك يا أخي {name} في بوت التمويل الاحترافي 🚀\n\n"
-        "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
-    ),
+    "welcome": WELCOME_TERMS_TEXT,
     "how": (
         "📢 **كيف يكون إعلانك؟ / How does your ad look?**\n\n"
         "🇪🇬 **العربية:**\n"
@@ -148,10 +161,7 @@ DEFAULT_SECTION_TEXTS = {
 LANGUAGE_OPTIONS = {
     "ar": {
         "label": "🇸🇦 العربية",
-        "welcome": (
-            "مرحباً بك يا أخي {name} في بوت التمويل الاحترافي 🚀\n\n"
-            "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
-        ),
+        "welcome": WELCOME_TERMS_TEXT,
         "how": (
             "📢 **كيف يكون إعلانك؟**\n\n"
             "يتم ترتيب إعلانك وبعد الموافقة على تأكيد تفعيل الإعلان يظهر في"
@@ -169,8 +179,14 @@ LANGUAGE_OPTIONS = {
     "en": {
         "label": "🇺🇸 English",
         "welcome": (
-            "Welcome {name} to the Professional Funding Bot 🚀\n\n"
-            "Please use the buttons below to navigate between sections:"
+            "📜 Advertising Bot Terms & Conditions\n"
+            "1. Service Nature & Publishing Mechanism\n"
+            "This bot is a technical platform for publishing and advertising"
+            " financing services only.\n"
+            "Your ad is published across all channels within the selected"
+            " folder.\n"
+            "Each folder has its own content; please review and verify via the"
+            " buttons 👇🏻"
         ),
         "how": (
             "📢 **How does your ad look?**\n\n"
@@ -189,8 +205,14 @@ LANGUAGE_OPTIONS = {
     "tr": {
         "label": "🇹🇷 Türkçe",
         "welcome": (
-            "Hoş geldiniz {name}, Profesyonel Fonlama Botuna 🚀\n\n"
-            "Bölümler arasında gezinmek için aşağıdaki düğmeleri kullanın:"
+            "📜 Reklam Botu Kullanım Şartları ve Koşulları\n"
+            "1. Hizmetin Niteliği ve Yayın Mekanizması\n"
+            "Bu bot yalnızca yayın ve reklam finansmanı hizmetleri sunan"
+            " teknik bir platformdur.\n"
+            "Reklamınız, seçtiğiniz klasöre bağlı tüm kanallarda"
+            " yayınlanır.\n"
+            "Her klasörün kendi içeriği vardır; lütfen aşağıdaki düğmelerden"
+            " kontrol edin 👇🏻"
         ),
         "how": (
             "📢 **Reklamınız nasıl görünür?**\n\n"
@@ -209,8 +231,14 @@ LANGUAGE_OPTIONS = {
     "hi": {
         "label": "🇮🇳 हिन्दी",
         "welcome": (
-            "प्रोफेशनल फंडिंग बॉट में आपका स्वागत है {name} 🚀\n\n"
-            "विभिन्न अनुभागों में जाने के लिए नीचे दिए गए बटन का उपयोग करें:"
+            "📜 विज्ञापन बॉट के नियम और शर्तें\n"
+            "1. सेवा की प्रकृति और प्रकाशन प्रणाली\n"
+            "यह बॉट केवल प्रकाशन और विज्ञापन वित्तपोषण सेवाओं के लिए एक"
+            " तकनीकी मंच है।\n"
+            "आपका विज्ञापन आपके द्वारा चुने गए फ़ोल्डर के सभी चैनलों में"
+            " प्रकाशित किया जाता है।\n"
+            "प्रत्येक फ़ोल्डर की अपनी सामग्री है; कृपया नीचे दिए गए बटनों से"
+            " जांचें 👇🏻"
         ),
         "how": (
             "📢 **आपका विज्ञापन कैसा दिखेगा?**\n\n"
@@ -256,8 +284,8 @@ def init_db():
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ratings_summary (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
-                positive INTEGER NOT NULL DEFAULT 53,
-                negative INTEGER NOT NULL DEFAULT 11
+                positive INTEGER NOT NULL DEFAULT 670,
+                negative INTEGER NOT NULL DEFAULT 95
             )
             """)
         conn.execute("""
@@ -321,8 +349,14 @@ def init_db():
             )
             """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS force_sub_verified (
+                user_id INTEGER PRIMARY KEY,
+                verified_at TEXT NOT NULL
+            )
+            """)
+        conn.execute("""
             INSERT OR IGNORE INTO ratings_summary (id, positive, negative)
-            VALUES (1, 53, 11)
+            VALUES (1, 670, 95)
             """)
         for key, data in DEFAULT_FOLDERS.items():
             conn.execute(
@@ -352,7 +386,84 @@ def init_db():
             INSERT OR IGNORE INTO bot_settings (key, value)
             VALUES ('current_ad_photo', '')
             """)
+        conn.execute("""
+            INSERT OR IGNORE INTO bot_settings (key, value)
+            VALUES ('extra_completed_ads', '0')
+            """)
         conn.commit()
+
+
+def is_user_force_sub_verified(user_id):
+    if int(user_id) == ADMIN_ID:
+        return True
+    if FORCE_SUB_CHANNEL_CHAT:
+        try:
+            member = bot.get_chat_member(FORCE_SUB_CHANNEL_CHAT, int(user_id))
+            if member.status in ("creator", "administrator", "member", "restricted"):
+                return True
+            return False
+        except Exception:
+            pass
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM force_sub_verified WHERE user_id = ?",
+            (int(user_id),),
+        ).fetchone()
+        return row is not None
+
+
+def mark_user_force_sub_verified(user_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO force_sub_verified (user_id, verified_at)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET verified_at = excluded.verified_at
+            """,
+            (int(user_id), datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+
+
+def get_force_sub_markup():
+    keyboard = InlineKeyboardMarkup()
+    keyboard.row(
+        InlineKeyboardButton("📢 اشترك في القناة الآن", url=FORCE_SUB_CHANNEL_URL)
+    )
+    keyboard.row(
+        InlineKeyboardButton(
+            "✅ لقد اشتركت — تحقق الآن", callback_data="verify_force_sub"
+        )
+    )
+    return keyboard
+
+
+def send_force_sub_prompt(chat_id, message_id=None, is_edit=False):
+    prompt_text = (
+        "⚠️ **عذراً! يجب عليك الاشتراك في القناة أولاً لتتمكن من استخدام"
+        " البوت:**\n\n"
+        f"🔗 رابط القناة:\n{FORCE_SUB_CHANNEL_URL}\n\n"
+        "1️⃣ اضغط على زر **اشترك في القناة الآن** وانضم للقناة.\n"
+        "2️⃣ ثم اضغط على زر **لقد اشتركت — تحقق الآن** لفتح البوت."
+    )
+    if is_edit and message_id:
+        try:
+            bot.edit_message_text(
+                prompt_text,
+                chat_id,
+                message_id,
+                parse_mode="Markdown",
+                reply_markup=get_force_sub_markup(),
+            )
+            return
+        except Exception:
+            pass
+    bot.send_message(
+        chat_id,
+        prompt_text,
+        parse_mode="Markdown",
+        reply_markup=get_force_sub_markup(),
+    )
 
 
 def register_user(user_id, chat_id):
@@ -384,6 +495,35 @@ def get_registered_users_count():
             "SELECT COUNT(DISTINCT user_id) FROM bot_users"
         ).fetchone()
         return int(row[0]) if row and row[0] is not None else 0
+
+
+def get_extra_completed_ads():
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT value FROM bot_settings WHERE key = 'extra_completed_ads'"
+        ).fetchone()
+        if row and row[0]:
+            try:
+                return int(row[0])
+            except ValueError:
+                return 0
+    return 0
+
+
+def increment_extra_completed_ads(step=1):
+    current = get_extra_completed_ads()
+    new_val = current + int(step)
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO bot_settings (key, value)
+            VALUES ('extra_completed_ads', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (str(new_val),),
+        )
+        conn.commit()
+    return new_val
 
 
 def set_user_language(user_id, lang_code):
@@ -478,8 +618,8 @@ def get_referral_stats(user_id):
 
 
 def load_ratings():
-    positive = 53
-    negative = 11
+    positive = 670
+    negative = 95
     voted_users = set()
     with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute(
@@ -503,10 +643,12 @@ def save_rating_vote(user_id, is_positive):
             conn.execute(
                 "UPDATE ratings_summary SET positive = positive + 1 WHERE id = 1"
             )
+            ratings_data["positive"] = int(ratings_data.get("positive", 670)) + 1
         else:
             conn.execute(
                 "UPDATE ratings_summary SET negative = negative + 1 WHERE id = 1"
             )
+            ratings_data["negative"] = int(ratings_data.get("negative", 95)) + 1
         conn.commit()
 
 
@@ -695,8 +837,7 @@ user_transfer_target = {}
 # نظام التقييمات التفاعلي (محفوظ في قاعدة البيانات)
 ratings_data = load_ratings()
 
-
-# نظام الزيادة اليومية لإحصائيات المستخدمين حسب الدول
+# نظام الزيادة اليومية لإحصائيات المستخدمين حسب الدول (متزايد مع كل مستخدم جديد)
 STATS_START_DATE = datetime(2026, 11, 19, tzinfo=timezone.utc)
 countries_users_config = [
     {"flag": "🇸🇦", "name": "السعودية", "base": 550, "daily": 6},
@@ -705,6 +846,7 @@ countries_users_config = [
     {"flag": "🇰🇼", "name": "الكويت", "base": 240, "daily": 3},
     {"flag": "🇶🇦", "name": "قطر", "base": 185, "daily": 2},
     {"flag": "🇴🇲", "name": "عمان", "base": 160, "daily": 2},
+    {"flag": "🇾🇪", "name": "اليمن", "base": 239, "daily": 2},
     {"flag": "🇹🇷", "name": "تركيا", "base": 115, "daily": 2},
     {"flag": "🇺🇸", "name": "أمريكا", "base": 95, "daily": 1},
     {"flag": "🇬🇧", "name": "بريطانيا", "base": 70, "daily": 1},
@@ -712,37 +854,46 @@ countries_users_config = [
 ]
 
 
-def build_bot_stats_report():
+def get_countries_users_breakdown():
     elapsed_days = max(0, (datetime.now(timezone.utc) - STATS_START_DATE).days)
     registered_count = get_registered_users_count()
-
-    lines = []
+    items = []
     countries_total = 0
-    for item in countries_users_config:
-        count = item["base"] + (elapsed_days * item["daily"])
-        countries_total += count
-        lines.append(f"{item['flag']} {item['name']} {count} مستخدم")
 
-    total_users = countries_total + registered_count
+    for idx, item in enumerate(countries_users_config):
+        # توزيع المستخدمين الجدد بشكل تصاعدي على الدول لزيادة الأرقام باستمرار
+        extra_from_users = (registered_count + len(countries_users_config) - 1 - idx) // len(
+            countries_users_config
+        )
+        count = item["base"] + (elapsed_days * item["daily"]) + extra_from_users
+        countries_total += count
+        items.append({"flag": item["flag"], "name": item["name"], "count": count})
+
+    return items, countries_total
+
+
+def build_bot_stats_report():
+    items, countries_total = get_countries_users_breakdown()
+    lines = [
+        f"{item['flag']} {item['name']} {item['count']} مستخدم" for item in items
+    ]
     countries_block = "\n".join(lines)
 
     return (
         "📊 **إحصائيات مستخدمي البوت من جميع الدول:**\n\n"
         f"{countries_block}\n\n"
-        f"👥 **إجمالي مستخدمي البوت:** `{total_users:,} مستخدم`"
+        f"👥 **إجمالي مستخدمي البوت:** `{countries_total:,} مستخدم`"
     )
 
 
-def get_balanced_ratings():
-    """موازنة التقييمات نص بنص على قدر عدد المستخدمين دون زيادة أو نقصان."""
-    total_users = max(2, get_registered_users_count())
-    base_half = total_users // 2
-    remainder = total_users % 2
-    pos = base_half + remainder
-    neg = base_half
-    pos_pct = (pos / total_users * 100) if total_users > 0 else 50.0
-    neg_pct = (neg / total_users * 100) if total_users > 0 else 50.0
-    return pos, neg, total_users, pos_pct, neg_pct
+def get_ratings_stats():
+    _, countries_total = get_countries_users_breakdown()
+    pos = max(670, int(ratings_data.get("positive", 670)))
+    neg = max(95, int(ratings_data.get("negative", 95)))
+    total = max(countries_total, pos + neg)
+    pos_pct = (pos / total * 100) if total > 0 else 0.0
+    neg_pct = (neg / total * 100) if total > 0 else 0.0
+    return pos, neg, total, pos_pct, neg_pct
 
 
 def get_display_name(user):
@@ -760,14 +911,11 @@ def build_welcome_text(user):
     if lang_code != "ar" and lang_code in LANGUAGE_OPTIONS:
         template = LANGUAGE_OPTIONS[lang_code]["welcome"]
     else:
-        template = section_texts.get("welcome", DEFAULT_SECTION_TEXTS["welcome"])
+        template = section_texts.get("welcome", WELCOME_TERMS_TEXT)
     try:
         return template.format(name=person_name)
     except Exception:
-        return (
-            f"مرحباً بك يا أخي {person_name} في بوت التمويل الاحترافي 🚀\n\n"
-            "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
-        )
+        return WELCOME_TERMS_TEXT
 
 
 def get_how_text_for_user(user_id):
@@ -813,7 +961,7 @@ def build_invite_text(user_id):
     )
 
 
-# نظام الزيادة التلقائية اليومية للإعلانات المنجزة حسب كل دولة
+# نظام الزيادة التلقائية اليومية للإعلانات المنجزة حسب كل دولة + إضافات الإعلانات المنفذة في البوت
 ADS_START_DATE = datetime(2026, 11, 19, tzinfo=timezone.utc)
 countries_ads_config = [
     {"flag": "🇸🇦", "name": "المملكة العربية السعودية", "base": 350, "daily": 4},
@@ -827,6 +975,7 @@ countries_ads_config = [
     {"flag": "🇰🇼", "name": "دولة الكويت", "base": 190, "daily": 2},
     {"flag": "🇶🇦", "name": "دولة قطر", "base": 150, "daily": 2},
     {"flag": "🇴🇲", "name": "سلطنة عمان", "base": 130, "daily": 2},
+    {"flag": "🇾🇪", "name": "الجمهورية اليمنية", "base": 140, "daily": 2},
     {
         "flag": "🇺🇸",
         "name": "الولايات المتحدة الأمريكية (USA)",
@@ -842,12 +991,16 @@ countries_ads_config = [
 
 def build_completed_ads_report():
     elapsed_days = max(0, (datetime.now(timezone.utc) - ADS_START_DATE).days)
+    extra_ads = get_extra_completed_ads()
 
     lines = []
     total_ads = 0
 
-    for item in countries_ads_config:
-        count = item["base"] + (elapsed_days * item["daily"])
+    for idx, item in enumerate(countries_ads_config):
+        extra_for_country = (extra_ads + len(countries_ads_config) - 1 - idx) // len(
+            countries_ads_config
+        )
+        count = item["base"] + (elapsed_days * item["daily"]) + extra_for_country
         total_ads += count
         lines.append(f"{item['flag']} **{item['name']}:** `{count} إعلان`")
 
@@ -1029,8 +1182,8 @@ def get_ratings_menu(has_voted=False):
     keyboard = InlineKeyboardMarkup()
     if not has_voted:
         keyboard.row(
-            InlineKeyboardButton("👍 تقييم إيجابي", callback_data="rate_positive"),
-            InlineKeyboardButton("👎 تقييم سلبي", callback_data="rate_negative"),
+            InlineKeyboardButton("الزر الأخضر", callback_data="rate_positive"),
+            InlineKeyboardButton("الزر الاحمر", callback_data="rate_negative"),
         )
     keyboard.row(
         InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="back_to_main")
@@ -1242,7 +1395,7 @@ def apply_platform_update(platform_key, min_amt=None, max_amt=None, addr=None):
     payment_texts[platform_key] = formatted
     save_payment_text(platform_key, formatted)
     return formatted
-# ==================== الكود رقم (42) - الجزء الثاني (2/3) ====================
+# ==================== الكود رقم (42) - القسم الثاني (2/3) ====================
 # ==================== أوامر البوت ====================
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
@@ -1288,6 +1441,10 @@ def send_welcome(message):
                     )
                 except Exception as e:
                     print(f"خطأ في إرسال إشعار الدعوة للداعي: {e}")
+
+    if not is_user_force_sub_verified(user_id):
+        send_force_sub_prompt(chat_id)
+        return
 
     clear_user_states(chat_id)
     text = build_welcome_text(message.from_user)
@@ -1725,6 +1882,48 @@ def callback_inline(call):
     user_id = call.from_user.id
     register_user(user_id, chat_id)
 
+    if call.data == "verify_force_sub":
+        if FORCE_SUB_CHANNEL_CHAT:
+            try:
+                member = bot.get_chat_member(FORCE_SUB_CHANNEL_CHAT, int(user_id))
+                if member.status not in (
+                    "creator",
+                    "administrator",
+                    "member",
+                    "restricted",
+                ):
+                    bot.answer_callback_query(
+                        call.id,
+                        "❌ لم يتم رصد اشتراكك في القناة بعد، اشترك ثم أعد المحاولة.",
+                        show_alert=True,
+                    )
+                    return
+            except Exception:
+                pass
+
+        mark_user_force_sub_verified(user_id)
+        bot.answer_callback_query(
+            call.id, "✅ تم التحقق من الاشتراك بنجاح! أهلاً بك."
+        )
+        clear_user_states(chat_id)
+        text = build_welcome_text(call.from_user)
+        try:
+            bot.edit_message_text(
+                text, chat_id, message_id, reply_markup=get_main_menu()
+            )
+        except Exception:
+            bot.send_message(chat_id, text, reply_markup=get_main_menu())
+        return
+
+    if not is_user_force_sub_verified(user_id):
+        bot.answer_callback_query(
+            call.id,
+            "⚠️ يجب الاشتراك في القناة أولاً لاستخدام البوت.",
+            show_alert=True,
+        )
+        send_force_sub_prompt(chat_id, message_id=message_id, is_edit=True)
+        return
+
     if call.data.startswith("cbtn_"):
         btn_key = call.data.replace("cbtn_", "", 1)
         btn_info = custom_buttons.get(btn_key)
@@ -1975,15 +2174,14 @@ def callback_inline(call):
 
     elif call.data == "user_ratings":
         user_waiting_for_support_message[chat_id] = False
-        pos, neg, total, pos_pct, neg_pct = get_balanced_ratings()
+        pos, neg, total, pos_pct, neg_pct = get_ratings_stats()
         has_voted = user_id in ratings_data["voted_users"]
 
         ratings_text = (
             "تقرير التقييم الشامل للبوت:\n\n"
             f"📌 نسبة التقييمات الإيجابية: {pos_pct:.2f}%\n"
             f"📌 نسبة التقييمات السلبية: {neg_pct:.2f}%\n\n"
-            f"🔢 العدد الإجمالي للمستخدمين الذين قاموا بتقييم البوت:"
-            f" {total}\n\n"
+            f"🔢 العدد الإجمالي لمستخدمي البوت: {total}\n\n"
             f"🟢 عدد التقييمات الإيجابية: {pos}\n"
             f"🔴 عدد التقييمات السلبية: {neg}"
         )
@@ -2007,13 +2205,12 @@ def callback_inline(call):
                 call.id, "⚠️ لقد قمت بالتقييم مسبقاً!", show_alert=True
             )
 
-        pos, neg, total, pos_pct, neg_pct = get_balanced_ratings()
+        pos, neg, total, pos_pct, neg_pct = get_ratings_stats()
         updated_text = (
             "تقرير التقييم الشامل للبوت:\n\n"
             f"📌 نسبة التقييمات الإيجابية: {pos_pct:.2f}%\n"
             f"📌 نسبة التقييمات السلبية: {neg_pct:.2f}%\n\n"
-            f"🔢 العدد الإجمالي للمستخدمين الذين قاموا بتقييم البوت:"
-            f" {total}\n\n"
+            f"🔢 العدد الإجمالي لمستخدمي البوت: {total}\n\n"
             f"🟢 عدد التقييمات الإيجابية: {pos}\n"
             f"🔴 عدد التقييمات السلبية: {neg}"
         )
@@ -2039,13 +2236,12 @@ def callback_inline(call):
                 call.id, "⚠️ لقد قمت بالتقييم مسبقاً!", show_alert=True
             )
 
-        pos, neg, total, pos_pct, neg_pct = get_balanced_ratings()
+        pos, neg, total, pos_pct, neg_pct = get_ratings_stats()
         updated_text = (
             "تقرير التقييم الشامل للبوت:\n\n"
             f"📌 نسبة التقييمات الإيجابية: {pos_pct:.2f}%\n"
             f"📌 نسبة التقييمات السلبية: {neg_pct:.2f}%\n\n"
-            f"🔢 العدد الإجمالي للمستخدمين الذين قاموا بتقييم البوت:"
-            f" {total}\n\n"
+            f"🔢 العدد الإجمالي لمستخدمي البوت: {total}\n\n"
             f"🟢 عدد التقييمات الإيجابية: {pos}\n"
             f"🔴 عدد التقييمات السلبية: {neg}"
         )
@@ -2357,6 +2553,7 @@ def callback_inline(call):
         new_bal = current_bal - price
         user_balances[chat_id] = new_bal
         save_balance(chat_id, new_bal)
+        increment_extra_completed_ads(1)
 
         review_text = (
             "⏳ **تم استلام طلبك بنجاح!**\n\n"
@@ -2479,7 +2676,7 @@ def callback_inline(call):
             bot.edit_message_text(
                 text, chat_id, message_id, reply_markup=get_main_menu()
             )
-# ==================== الكود رقم (42) - الجزء الثالث والأخير (3/3) ====================
+# ==================== الكود رقم (42) - القسم الثالث (3/3) ====================
 # ==================== معالجة الدفع بالنجوم ====================
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def checkout(pre_checkout_query):
@@ -2528,6 +2725,10 @@ def handle_all_messages(message):
         if message.from_user.first_name
         else "مستخدم"
     )
+
+    if not is_user_force_sub_verified(user_id):
+        send_force_sub_prompt(chat_id)
+        return
 
     # 1. إذا كان المرسل هو الأدمن
     if user_id == ADMIN_ID:
@@ -2819,7 +3020,6 @@ def handle_all_messages(message):
 # ==================== تشغيل البوت ====================
 if __name__ == "__main__":
     print(
-        "تم تشغيل البوت بنجاح (الكود رقم 42 - أوامر التحكم اليدوي وتوسيع"
-        " الأزرار وتفاصيلها)..."
+        "تم تشغيل البوت بنجاح (الكود رقم 42 - النسخة المعدلة الكاملة)..."
     )
     bot.infinity_polling(timeout=60, long_polling_timeout=60)
