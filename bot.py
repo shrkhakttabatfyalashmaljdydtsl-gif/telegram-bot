@@ -1,11 +1,12 @@
 import os
+import re
 import sqlite3
 import time
 from datetime import datetime, timezone
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# ==================== الكود رقم (42) ====================
+# ==================== الكود رقم (42) - الجزء الأول (1/2) ====================
 # قراءة توكن البوت من متغيرات البيئة في Railway مع وجود التوكن الاحتياطي
 TOKEN = os.getenv("BOT_TOKEN", "9015540423:AAF1I4ZPdzybeoE4LjCyobw-kg86mgjRmDo")
 bot = telebot.TeleBot(TOKEN)
@@ -37,32 +38,69 @@ DEFAULT_FOLDERS = {
     },
 }
 
+DEFAULT_PLATFORM_CONFIGS = {
+    "binance": {
+        "title": "🟡 شحن البوت عبر منصة بينانس (Binance)",
+        "intro": "اخترت منصة Binance لشحن رصيدك",
+        "min_amount": "10",
+        "max_amount": "200",
+        "currency": "USDT",
+        "network": "BNB Smart Chain (BEP20)",
+        "address": "0x0e72a9e009149a5810166f854066bd166627c827",
+        "footer": (
+            "بعد إتمام التحويل عبر Binance، اضغط على أرسل الوصل 📤 وأرسل"
+            " صورة الإيصال"
+        ),
+    },
+    "okx": {
+        "title": "⚫ شحن البوت عبر منصة OKX",
+        "intro": "اخترت منصة OKX لشحن رصيدك",
+        "min_amount": "30",
+        "max_amount": "300",
+        "currency": "USDT",
+        "network": "X Layer (USDT&USDT0)",
+        "address": "XKOa3E8f6838ffd2230B2e484C402EE3c951Ef5AB99",
+        "footer": (
+            "بعد إتمام التحويل عبر OKX، اضغط على أرسل الوصل 📤 وأرسل صورة"
+            " الإيصال"
+        ),
+    },
+    "trustwallet": {
+        "title": "🔵 شحن البوت عبر محفظة Trust Wallet",
+        "intro": "اخترت منصة Trust Wallet لشحن رصيدك",
+        "min_amount": "30",
+        "max_amount": "300",
+        "currency": "USDT",
+        "network": "BNB Smart Chain (BEP20)",
+        "address": "0xa92D1c298f86fCAd3E231D8A2CE91A89c01dFB33",
+        "footer": (
+            "بعد إتمام التحويل عبر Trust Wallet، اضغط على أرسل الوصل 📤 وأرسل"
+            " صورة الإيصال"
+        ),
+    },
+}
+
+
+def format_platform_message(cfg):
+    return (
+        f"{cfg['title']}\n\n"
+        f"{cfg['intro']}\n"
+        "🪙 العملات الرقمية:\n"
+        f"📉 أقل مبلغ شحن: {cfg['min_amount']} دولار\n"
+        f"📈 أكثر مبلغ شحن: {cfg['max_amount']} دولار\n"
+        f"• العملة: {cfg['currency']}\n"
+        f"• الشبكة: {cfg['network']}\n"
+        "• العنوان:\n"
+        f"{cfg['address']}\n\n"
+        f"{cfg['footer']}"
+    )
+
+
 DEFAULT_PAYMENT_TEXTS = {
-    "binance": (
-        "🟡 **شحن البوت عبر منصة بينانس (Binance):**\n\n"
-        "اخترت منصة Binance لشحن رصيدك اقل مبلغ شحن 10دولار\n"
-        "• العملة: `USDT`\n"
-        "• الشبكة: `BNB Smart Chain (BEP20)`\n"
-        "• العنوان:\n"
-        "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
-        "بعد إتمام التحويل عبر Binance، اضغط على أرسل الوصل 📤 وأرسل"
-        " صورة الإيصال"
-    ),
-    "okx": (
-        "⚫ **شحن البوت عبر منصة OKX:**\n\n"
-        "شحن 30دولار\n"
-        "• العملة: `USDT`\n"
-        "• الشبكة: `X Layer (USDT&USDT0)`\n"
-        "• العنوان:\n"
-        "`XKOa3E8f6838ffd2230B2e484C402EE3c951Ef5AB99`"
-    ),
-    "trustwallet": (
-        "🔵 **شحن البوت عبر محفظة Trust Wallet:**\n\n"
-        "شحن 30دولار\n"
-        "• العملة: `USDT`\n"
-        "• الشبكة: `BNB Smart Chain (BEP20)`\n"
-        "• العنوان:\n"
-        "`0xa92D1c298f86fCAd3E231D8A2CE91A89c01dFB33`"
+    "binance": format_platform_message(DEFAULT_PLATFORM_CONFIGS["binance"]),
+    "okx": format_platform_message(DEFAULT_PLATFORM_CONFIGS["okx"]),
+    "trustwallet": format_platform_message(
+        DEFAULT_PLATFORM_CONFIGS["trustwallet"]
     ),
     "crypto": (
         "🪙 **العملات الرقمية:**\n"
@@ -73,7 +111,7 @@ DEFAULT_PAYMENT_TEXTS = {
         "🔹 العملة: USDT\n"
         "🔹 الشبكة: BNB Smart Chain (BEP20)\n"
         "🔹 العنوان:\n"
-        "`0x4aaf2231199d24842e606f99b4f69bb5cddb171e`\n\n"
+        "`0x0e72a9e009149a5810166f854066bd166627c827`\n\n"
         "⚠️ يرجى التأكد من اختيار شبكة (BEP20) لضمان وصول التحويل.\n"
         "📸 عند اكتمال الدفع، يرجى إرسال لقطة شاشة (Screenshot) هنا لتوثيق"
         " وتأكيد العملية للإدارة."
@@ -105,6 +143,89 @@ DEFAULT_SECTION_TEXTS = {
         " أقرب وقت ممكن عند تواجدنا.\n\n"
         "✍️ **اكتب رسالتك الآن وأرسلها في الشات:**"
     ),
+}
+
+LANGUAGE_OPTIONS = {
+    "ar": {
+        "label": "🇸🇦 العربية",
+        "welcome": (
+            "مرحباً بك يا أخي {name} في بوت التمويل الاحترافي 🚀\n\n"
+            "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
+        ),
+        "how": (
+            "📢 **كيف يكون إعلانك؟**\n\n"
+            "يتم ترتيب إعلانك وبعد الموافقة على تأكيد تفعيل الإعلان يظهر في"
+            " جميع قنوات المجلد كما تشاهدون أمامكم في الصورة 📸✨"
+        ),
+        "contact": (
+            "🔄 **التواصل والدعم الفني:**\n\n"
+            "💬 أهلاً بك في مركز خدمة العملاء والدعم.\n"
+            "الرجاء إرسال رسالتك أو استفسارك الآن في هذه الدردشة، وسيتم"
+            " إرسالها فوراً إلى الإدارة للرد عليك في أقرب وقت.\n\n"
+            "✍️ **اكتب رسالتك الآن وأرسلها في الشات:**"
+        ),
+        "selected_msg": "✅ تم اعتماد اللغة العربية بنجاح.",
+    },
+    "en": {
+        "label": "🇺🇸 English",
+        "welcome": (
+            "Welcome {name} to the Professional Funding Bot 🚀\n\n"
+            "Please use the buttons below to navigate between sections:"
+        ),
+        "how": (
+            "📢 **How does your ad look?**\n\n"
+            "Once your ad is arranged and approved, it will appear across all"
+            " folder channels as shown in the preview 📸✨"
+        ),
+        "contact": (
+            "🔄 **Contact & Technical Support:**\n\n"
+            "💬 Welcome to Customer Support.\n"
+            "Please send your message or inquiry now in this chat and our team"
+            " will reply as soon as possible.\n\n"
+            "✍️ **Type your message now and send it:**"
+        ),
+        "selected_msg": "✅ English language has been selected successfully.",
+    },
+    "tr": {
+        "label": "🇹🇷 Türkçe",
+        "welcome": (
+            "Hoş geldiniz {name}, Profesyonel Fonlama Botuna 🚀\n\n"
+            "Bölümler arasında gezinmek için aşağıdaki düğmeleri kullanın:"
+        ),
+        "how": (
+            "📢 **Reklamınız nasıl görünür?**\n\n"
+            "Reklamınız düzenlenip onaylandıktan sonra klasördeki tüm"
+            " kanallarda görseldeki gibi yayınlanır 📸✨"
+        ),
+        "contact": (
+            "🔄 **İletişim ve Teknik Destek:**\n\n"
+            "💬 Müşteri desteğine hoş geldiniz.\n"
+            "Lütfen mesajınızı veya sorunuzu şimdi bu sohbete gönderin, ekibimiz"
+            " en kısa sürede yanıt verecektir.\n\n"
+            "✍️ **Mesajınızı şimdi yazın ve gönderin:**"
+        ),
+        "selected_msg": "✅ Türkçe dili başarıyla seçildi.",
+    },
+    "hi": {
+        "label": "🇮🇳 हिन्दी",
+        "welcome": (
+            "प्रोफेशनल फंडिंग बॉट में आपका स्वागत है {name} 🚀\n\n"
+            "विभिन्न अनुभागों में जाने के लिए नीचे दिए गए बटन का उपयोग करें:"
+        ),
+        "how": (
+            "📢 **आपका विज्ञापन कैसा दिखेगा?**\n\n"
+            "आपका विज्ञापन व्यवस्थित और स्वीकृत होने के बाद फ़ोल्डर के सभी"
+            " चैनलों पर दिखाई देगा 📸✨"
+        ),
+        "contact": (
+            "🔄 **संपर्क और तकनीकी सहायता:**\n\n"
+            "💬 ग्राहक सहायता में आपका स्वागत है।\n"
+            "कृपया अपना संदेश या प्रश्न अभी इस चैट में भेजें, हमारी टीम जल्द ही"
+            " उत्तर देगी।\n\n"
+            "✍️ **अपना संदेश अभी लिखें और भेजें:**"
+        ),
+        "selected_msg": "✅ हिन्दी भाषा सफलतापूर्वक चुन ली गई है।",
+    },
 }
 
 BOT_USERNAME_CACHE = None
@@ -161,6 +282,12 @@ def init_db():
             CREATE TABLE IF NOT EXISTS bot_users (
                 user_id INTEGER PRIMARY KEY,
                 chat_id INTEGER NOT NULL
+            )
+            """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_languages (
+                user_id INTEGER PRIMARY KEY,
+                lang_code TEXT NOT NULL DEFAULT 'ar'
             )
             """)
         conn.execute("""
@@ -249,6 +376,40 @@ def get_all_users():
             "SELECT DISTINCT chat_id FROM bot_users WHERE chat_id IS NOT NULL"
         ).fetchall()
         return [int(r[0]) for r in rows]
+
+
+def get_registered_users_count():
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM bot_users"
+        ).fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+
+def set_user_language(user_id, lang_code):
+    if lang_code not in LANGUAGE_OPTIONS:
+        lang_code = "ar"
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO user_languages (user_id, lang_code)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET lang_code = excluded.lang_code
+            """,
+            (int(user_id), lang_code),
+        )
+        conn.commit()
+
+
+def get_user_language(user_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT lang_code FROM user_languages WHERE user_id = ?",
+            (int(user_id),),
+        ).fetchone()
+        if row and row[0] in LANGUAGE_OPTIONS:
+            return row[0]
+    return "ar"
 
 
 def load_balances():
@@ -419,6 +580,20 @@ def save_payment_text(platform_key, content):
         conn.commit()
 
 
+def parse_platform_config_from_text(platform_key, text):
+    base = dict(DEFAULT_PLATFORM_CONFIGS[platform_key])
+    min_m = re.search(r"أقل مبلغ شحن:\s*([^\s\n]+)", text)
+    max_m = re.search(r"أكثر مبلغ شحن:\s*([^\s\n]+)", text)
+    addr_m = re.search(r"• العنوان:\s*\n?([^\n]+)", text)
+    if min_m:
+        base["min_amount"] = min_m.group(1).strip()
+    if max_m:
+        base["max_amount"] = max_m.group(1).strip()
+    if addr_m:
+        base["address"] = addr_m.group(1).strip()
+    return base
+
+
 def load_section_texts():
     texts = dict(DEFAULT_SECTION_TEXTS)
     with sqlite3.connect(DB_PATH) as conn:
@@ -494,6 +669,15 @@ payment_texts = load_payment_texts()
 section_texts = load_section_texts()
 custom_buttons = load_custom_buttons()
 
+platform_configs = {
+    p_key: parse_platform_config_from_text(p_key, payment_texts.get(p_key, ""))
+    for p_key in DEFAULT_PLATFORM_CONFIGS
+}
+for p_key, cfg in platform_configs.items():
+    formatted = format_platform_message(cfg)
+    payment_texts[p_key] = formatted
+    save_payment_text(p_key, formatted)
+
 user_waiting_for_receipt = {}
 admin_waiting_for_amount = {}
 admin_waiting_for_broadcast = set()
@@ -512,6 +696,55 @@ user_transfer_target = {}
 ratings_data = load_ratings()
 
 
+# نظام الزيادة اليومية لإحصائيات المستخدمين حسب الدول
+STATS_START_DATE = datetime(2026, 11, 19, tzinfo=timezone.utc)
+countries_users_config = [
+    {"flag": "🇸🇦", "name": "السعودية", "base": 550, "daily": 6},
+    {"flag": "🇪🇬", "name": "مصر", "base": 490, "daily": 5},
+    {"flag": "🇦🇪", "name": "الإمارات", "base": 360, "daily": 4},
+    {"flag": "🇰🇼", "name": "الكويت", "base": 240, "daily": 3},
+    {"flag": "🇶🇦", "name": "قطر", "base": 185, "daily": 2},
+    {"flag": "🇴🇲", "name": "عمان", "base": 160, "daily": 2},
+    {"flag": "🇹🇷", "name": "تركيا", "base": 115, "daily": 2},
+    {"flag": "🇺🇸", "name": "أمريكا", "base": 95, "daily": 1},
+    {"flag": "🇬🇧", "name": "بريطانيا", "base": 70, "daily": 1},
+    {"flag": "🇮🇳", "name": "الهند", "base": 65, "daily": 1},
+]
+
+
+def build_bot_stats_report():
+    elapsed_days = max(0, (datetime.now(timezone.utc) - STATS_START_DATE).days)
+    registered_count = get_registered_users_count()
+
+    lines = []
+    countries_total = 0
+    for item in countries_users_config:
+        count = item["base"] + (elapsed_days * item["daily"])
+        countries_total += count
+        lines.append(f"{item['flag']} {item['name']} {count} مستخدم")
+
+    total_users = countries_total + registered_count
+    countries_block = "\n".join(lines)
+
+    return (
+        "📊 **إحصائيات مستخدمي البوت من جميع الدول:**\n\n"
+        f"{countries_block}\n\n"
+        f"👥 **إجمالي مستخدمي البوت:** `{total_users:,} مستخدم`"
+    )
+
+
+def get_balanced_ratings():
+    """موازنة التقييمات نص بنص على قدر عدد المستخدمين دون زيادة أو نقصان."""
+    total_users = max(2, get_registered_users_count())
+    base_half = total_users // 2
+    remainder = total_users % 2
+    pos = base_half + remainder
+    neg = base_half
+    pos_pct = (pos / total_users * 100) if total_users > 0 else 50.0
+    neg_pct = (neg / total_users * 100) if total_users > 0 else 50.0
+    return pos, neg, total_users, pos_pct, neg_pct
+
+
 def get_display_name(user):
     if not user:
         return "عزيزي"
@@ -523,7 +756,11 @@ def get_display_name(user):
 
 def build_welcome_text(user):
     person_name = get_display_name(user)
-    template = section_texts.get("welcome", DEFAULT_SECTION_TEXTS["welcome"])
+    lang_code = get_user_language(user.id) if user else "ar"
+    if lang_code != "ar" and lang_code in LANGUAGE_OPTIONS:
+        template = LANGUAGE_OPTIONS[lang_code]["welcome"]
+    else:
+        template = section_texts.get("welcome", DEFAULT_SECTION_TEXTS["welcome"])
     try:
         return template.format(name=person_name)
     except Exception:
@@ -531,6 +768,20 @@ def build_welcome_text(user):
             f"مرحباً بك يا أخي {person_name} في بوت التمويل الاحترافي 🚀\n\n"
             "يرجى استخدام الأزرار في الأسفل للتنقل بين الأقسام المختلفة:"
         )
+
+
+def get_how_text_for_user(user_id):
+    lang_code = get_user_language(user_id)
+    if lang_code != "ar" and lang_code in LANGUAGE_OPTIONS:
+        return LANGUAGE_OPTIONS[lang_code]["how"]
+    return section_texts.get("how", DEFAULT_SECTION_TEXTS["how"])
+
+
+def get_contact_text_for_user(user_id):
+    lang_code = get_user_language(user_id)
+    if lang_code != "ar" and lang_code in LANGUAGE_OPTIONS:
+        return LANGUAGE_OPTIONS[lang_code]["contact"]
+    return section_texts.get("contact", DEFAULT_SECTION_TEXTS["contact"])
 
 
 def build_invite_text(user_id):
@@ -654,13 +905,33 @@ def get_main_menu():
         keyboard.row(*main_custom[i : i + 2])
 
     keyboard.row(
-        InlineKeyboardButton("تقييم المستخدمين ⭐", callback_data="user_ratings"),
         InlineKeyboardButton(
             "شاهد إعلانات تم إنجازها 💻", callback_data="completed_ads"
         ),
+        InlineKeyboardButton("إحصائيات البوت 📊", callback_data="bot_stats"),
+    )
+    keyboard.row(
+        InlineKeyboardButton("تقييم المستخدمين ⭐", callback_data="user_ratings"),
+        InlineKeyboardButton("ترجمة البوت 🌐", callback_data="translate_bot"),
     )
     keyboard.row(
         InlineKeyboardButton("زر إضافي / تواصل 🔄", callback_data="extra_contact")
+    )
+    return keyboard
+
+
+def get_translate_menu():
+    keyboard = InlineKeyboardMarkup()
+    keyboard.row(
+        InlineKeyboardButton("🇸🇦 العربية", callback_data="set_lang_ar"),
+        InlineKeyboardButton("🇺🇸 English", callback_data="set_lang_en"),
+    )
+    keyboard.row(
+        InlineKeyboardButton("🇹🇷 Türkçe", callback_data="set_lang_tr"),
+        InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="set_lang_hi"),
+    )
+    keyboard.row(
+        InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية", callback_data="back_to_main")
     )
     return keyboard
 
@@ -713,6 +984,20 @@ def get_all_platforms_menu():
     keyboard.row(
         InlineKeyboardButton(
             "منصة Trust Wallet", callback_data="platform_trustwallet"
+        )
+    )
+
+    platforms_custom = [
+        build_custom_inline_button(k, v)
+        for k, v in custom_buttons.items()
+        if v["menu"] == "platforms"
+    ]
+    for i in range(0, len(platforms_custom), 2):
+        keyboard.row(*platforms_custom[i : i + 2])
+
+    keyboard.row(
+        InlineKeyboardButton(
+            "🔙 رجوع إلى طرق الدفع", callback_data="recharge_bot"
         )
     )
     return keyboard
@@ -943,6 +1228,22 @@ def clear_user_states(chat_id):
     user_waiting_for_support_message[chat_id] = False
     user_transfer_step.pop(chat_id, None)
     user_transfer_target.pop(chat_id, None)
+
+
+def apply_platform_update(platform_key, min_amt=None, max_amt=None, addr=None):
+    cfg = platform_configs[platform_key]
+    if min_amt is not None:
+        cfg["min_amount"] = str(min_amt).strip()
+    if max_amt is not None:
+        cfg["max_amount"] = str(max_amt).strip()
+    if addr is not None:
+        cfg["address"] = str(addr).strip()
+    formatted = format_platform_message(cfg)
+    payment_texts[platform_key] = formatted
+    save_payment_text(platform_key, formatted)
+    return formatted
+
+
 # ==================== أوامر البوت ====================
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
@@ -1004,15 +1305,16 @@ def admin_help_command(message):
         "• `/setbalance ID المبلغ` — تعيين رصيد محدد\n"
         "• `/addbalance ID المبلغ` — إضافة رصيد\n"
         "• `/subbalance ID المبلغ` — خصم رصيد\n\n"
-        "2️⃣ **إدارة بيانات الدفع والأقسام:**\n"
-        "• `/setpay binance|okx|trustwallet|crypto النص` — تعديل بيانات"
-        " الدفع\n"
+        "2️⃣ **تعديل مبالغ وعناوين كل منصة بشكل مستقل:**\n"
+        "• `/setbinance_amt MIN MAX` و `/setbinance_addr العنوان`\n"
+        "• `/setokx_amt MIN MAX` و `/setokx_addr العنوان`\n"
+        "• `/settrust_amt MIN MAX` و `/settrust_addr العنوان`\n"
+        "• `/setpay binance|okx|trustwallet|crypto النص` — تعديل نص كامل\n"
         "• `/settext welcome|how|contact | النص الجديد` — تعديل نصوص"
         " الأقسام\n\n"
         "3️⃣ **إضافة وتوسيع الأزرار وتفاصيلها:**\n"
-        "• `/addbtn main|recharge | اسم الزر | النص أو الرابط` — إضافة زر"
-        " جديد\n"
-        "• `/editbtn مفتاح_الزر | الاسم الجديد | النص أو الرابط` — تعديل زر\n"
+        "• `/addbtn main|recharge|platforms | اسم الزر | النص أو الرابط`\n"
+        "• `/editbtn مفتاح_الزر | الاسم الجديد | النص أو الرابط`\n"
         "• `/delbtn مفتاح_الزر` — حذف زر مخصص\n"
         "• `/listbtns` — عرض مفاتيح الأزرار المخصصة\n\n"
         "4️⃣ **المجلدات والإرسال الجماعي:**\n"
@@ -1021,6 +1323,63 @@ def admin_help_command(message):
         "• `/broadcast`"
     )
     bot.reply_to(message, help_text, parse_mode="Markdown")
+
+
+@bot.message_handler(
+    commands=[
+        "setbinance_amt",
+        "setbinance_addr",
+        "setokx_amt",
+        "setokx_addr",
+        "settrust_amt",
+        "settrust_addr",
+    ]
+)
+def platform_manual_admin_commands(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    cmd = message.text.split()[0].lstrip("/").split("@")[0].lower()
+
+    if cmd.endswith("_amt"):
+        p_key = cmd.replace("set", "").replace("_amt", "")
+        parts = message.text.split()
+        if len(parts) < 3:
+            bot.reply_to(
+                message,
+                f"⚠️ الصيغة الصحيحة:\n`/{cmd} أقل_مبلغ أكثر_مبلغ`\nمثال:"
+                f" `/{cmd} 10 200`",
+                parse_mode="Markdown",
+            )
+            return
+        min_amt, max_amt = parts[1].strip(), parts[2].strip()
+        apply_platform_update(p_key, min_amt=min_amt, max_amt=max_amt)
+        bot.reply_to(
+            message,
+            f"✅ **تم تحديث مبالغ منصة `{p_key.upper()}` بنجاح!**\n"
+            f"• أقل مبلغ شحن: `{min_amt}` دولار\n"
+            f"• أكثر مبلغ شحن: `{max_amt}` دولار",
+            parse_mode="Markdown",
+        )
+        return
+
+    if cmd.endswith("_addr"):
+        p_key = cmd.replace("set", "").replace("_addr", "")
+        parts = message.text.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            bot.reply_to(
+                message,
+                f"⚠️ الصيغة الصحيحة:\n`/{cmd} العنوان_الجديد`",
+                parse_mode="Markdown",
+            )
+            return
+        new_addr = parts[1].strip()
+        apply_platform_update(p_key, addr=new_addr)
+        bot.reply_to(
+            message,
+            f"✅ **تم تحديث عنوان منصة `{p_key.upper()}` بنجاح!**\n"
+            f"• العنوان الجديد:\n`{new_addr}`",
+            parse_mode="Markdown",
+        )
 
 
 @bot.message_handler(commands=["setbalance", "addbalance", "subbalance"])
@@ -1090,6 +1449,10 @@ def set_payment_text_command(message):
     new_content = parts[2]
     payment_texts[p_key] = new_content
     save_payment_text(p_key, new_content)
+    if p_key in platform_configs:
+        platform_configs[p_key] = parse_platform_config_from_text(
+            p_key, new_content
+        )
     bot.reply_to(
         message,
         f"✅ **تم تحديث بيانات الدفع لقسم `{p_key}` وحفظها في قاعدة"
@@ -1141,8 +1504,8 @@ def add_custom_button_command(message):
         bot.reply_to(
             message,
             "⚠️ الصيغة الصحيحة:\n"
-            "`/addbtn main|recharge | اسم الزر | النص الذي يظهر عند الضغط أو"
-            " الرابط https://...`",
+            "`/addbtn main|recharge|platforms | اسم الزر | النص الذي يظهر عند"
+            " الضغط أو الرابط https://...`",
             parse_mode="Markdown",
         )
         return
@@ -1150,211 +1513,17 @@ def add_custom_button_command(message):
     if len(segments) < 3 or not segments[1] or not segments[2]:
         bot.reply_to(
             message,
-            "⚠️ تأكد من كتابة الموقع (`main` أو `recharge`) واسم الزر والتفاصيل"
-            " مفصولة بـ `|`.",
+            "⚠️ تأكد من كتابة الموقع (`main` أو `recharge` أو `platforms`) واسم"
+            " الزر والتفاصيل مفصولة بـ `|`.",
             parse_mode="Markdown",
         )
         return
     menu_loc = segments[0].lower()
-    if menu_loc not in ("main", "recharge"):
+    if menu_loc not in ("main", "recharge", "platforms"):
         bot.reply_to(
             message,
-            "⚠️ موقع الزر يجب أن يكون `main` (القائمة الرئيسية) أو `recharge`"
-            " (شحن البوت).",
-            parse_mode="Markdown",
-        )
-        return
-
-    label = segments[1]
-    target_val = segments[2]
-    action_type = (
-        "url"
-        if (target_val.startswith("http://") or target_val.startswith("https://"))
-        else "text"
-    )
-    btn_key = f"btn_{int(time.time())}_{len(custom_buttons) + 1}"
-
-    custom_buttons[btn_key] = {
-        "menu": menu_loc,
-        "label": label,
-        "action_type": action_type,
-        "action_value": target_val,
-    }
-    save_custom_button(btn_key, menu_loc, label, action_type, target_val)
-
-    bot.reply_to(
-        message,
-        f"✅ **تم إضافة الزر الجديد بنجاح!**\n"
-        f"• المفتاح: `{btn_key}`\n"
-        f"• الاسم: `{label}`\n"
-        f"• القائمة: `{menu_loc}`\n"
-        f"• النوع: `{action_type}`",
-        parse_mode="Markdown",
-    )
-
-
-@bot.message_handler(commands=["editbtn"])
-def edit_custom_button_command(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    raw_body = message.text.split(maxsplit=1)
-    if len(raw_body) < 2:
-        bot.reply_to(
-            message,
-            "⚠️ الصيغة الصحيحة:\n`/editbtn مفتاح_الزر | الاسم الجديد | النص أو"
-            " الرابط الجديد`",
-            parse_mode="Markdown",
-        )
-        return
-    segments = [seg.strip() for seg in raw_body[1].split("|", 2)]
-    if len(segments) < 3 or not segments[1] or not segments[2]:
-        bot.reply_to(message, "⚠️ يرجى إدخال المفتاح والاسم الجديد والتفاصيل.")
-        return
-    btn_key = segments[0]
-    if btn_key not in custom_buttons:
-        bot.reply_to(message, "❌ مفتاح الزر غير موجود. استخدم `/listbtns`.")
-        return
-
-    label = segments[1]
-    target_val = segments[2]
-    action_type = (
-        "url"
-        if (target_val.startswith("http://") or target_val.startswith("https://"))
-        else "text"
-    )
-    menu_loc = custom_buttons[btn_key]["menu"]
-
-    custom_buttons[btn_key] = {
-        "menu": menu_loc,
-        "label": label,
-        "action_type": action_type,
-        "action_value": target_val,
-    }
-    save_custom_button(btn_key, menu_loc, label, action_type, target_val)
-    bot.reply_to(
-        message,
-        f"✅ **تم تحديث الزر `{btn_key}` بنجاح.**",
-        parse_mode="Markdown",
-    )
-
-
-@bot.message_handler(commands=["delbtn"])
-def del_custom_button_command(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    parts = message.text.split(maxsplit=1)
-    if len(parts) < 2 or parts[1].strip() not in custom_buttons:
-        bot.reply_to(
-            message,
-            "⚠️ أرسل مفتاح الزر المراد حذفه. مثال:\n`/delbtn btn_123456_1`",
-            parse_mode="Markdown",
-        )
-        return
-    btn_key = parts[1].strip()
-    custom_buttons.pop(btn_key, None)
-    delete_custom_button(btn_key)
-    bot.reply_to(
-        message, f"✅ **تم حذف الزر `{btn_key}` بنجاح.**", parse_mode="Markdown"
-    )
-
-
-@bot.message_handler(commands=["listbtns"])
-def list_custom_buttons_command(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    if not custom_buttons:
-        bot.reply_to(message, "ℹ️ لا توجد أزرار مخصصة مضافة حالياً.")
-        return
-    lines = ["📋 **الأزرار المخصصة الحالية:**\n"]
-    for k, v in custom_buttons.items():
-        lines.append(
-            f"• المفتاح: `{k}` | الاسم: `{v['label']}` | القائمة:"
-            f" `{v['menu']}` | النوع: `{v['action_type']}`"
-        )
-    bot.reply_to(message, "\n".join(lines), parse_mode="Markdown")
-
-
-@bot.message_handler(commands=["broadcast"])
-def broadcast_command(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    register_user(message.from_user.id, message.chat.id)
-    admin_waiting_for_broadcast.add(ADMIN_ID)
-    bot.reply_to(
-        message,
-        "📣 **أرسل الآن الرسالة التي تريد إيصالها إلى جميع المستخدمين.**\n"
-        "*(يمكنك إرسال نص أو صورة مع نص)*\n"
-        "لإلغاء العملية أرسل: `/cancel`",
-        parse_mode="Markdown",
-    )
-
-
-@bot.message_handler(commands=["addfolder"])
-def add_folder_command(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        bot.reply_to(
-            message,
-            "⚠️ يرجى كتابة اسم المجلد مع الأمر. مثال:\n`/addfolder المجلد الرابع`",
-            parse_mode="Markdown",
-        )
-        return
-
-    folder_title = args[1].strip()
-    new_key = f"folder_{len(dynamic_folders) + 1}"
-    folder_name = f"📁 {folder_title}"
-    folder_link = "https://t.me/"
-    dynamic_folders[new_key] = {
-        "name": folder_name,
-        "link": folder_link,
-    }
-    save_folder(new_key, folder_name, folder_link)
-
-    bot.reply_to(
-        message,
-        f"✅ **تم بنجاح إضافة المجلد الجديد:** `{folder_title}`\n"
-        f"لتحديد رابطه، استخدم الأمر:\n`/setfolderlink {new_key}"
-        " رابط_المجلد`",
-        parse_mode="Markdown",
-    )
-
-
-@bot.message_handler(commands=["setfolderlink"])
-def set_folder_link_command(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-
-    args = message.text.split(maxsplit=2)
-    if len(args) < 3:
-        bot.reply_to(
-            message,
-            "⚠️ صيغة الأمر غير صحيحة. مثال:\n`/setfolderlink folder_1"
-            " https://t.me/addlist/xxxxx`",
-            parse_mode="Markdown",
-        )
-        return
-
-    folder_key = args[1].strip()
-    folder_link = args[2].strip()
-
-    if folder_key in dynamic_folders:
-        dynamic_folders[folder_key]["link"] = folder_link
-        folder_name = dynamic_folders[folder_key]["name"]
-        save_folder(folder_key, folder_name, folder_link)
-        bot.reply_to(
-            message,
-            f"✅ **تم تحديث رابط {folder_name} بنجاح!**\nالرابط الجديد:\n`{folder_link}`",
-            parse_mode="Markdown",
-        )
-    else:
-        bot.reply_to(
-            message, "❌ عذراً، معرف المجلد غير موجود. تأكد من الكود (مثل folder_1)."
-        )
-
-
+            "⚠️ موقع الزر يجب أن يكون `main` أو `recharge` أو `platforms`"
+            " (قسم المن# ==================== الكود رقم (42) - الجزء الثاني (2/2) ====================
 # ==================== معالجة الأزرار التفاعلية ====================
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
@@ -1369,11 +1538,12 @@ def callback_inline(call):
         if not btn_info:
             bot.answer_callback_query(call.id, "هذا الزر غير متاح حالياً.")
             return
-        back_markup = (
-            get_back_to_recharge_menu()
-            if btn_info["menu"] == "recharge"
-            else get_back_to_main_menu_only()
-        )
+        if btn_info["menu"] == "recharge":
+            back_markup = get_back_to_recharge_menu()
+        elif btn_info["menu"] == "platforms":
+            back_markup = get_all_platforms_menu()
+        else:
+            back_markup = get_back_to_main_menu_only()
         bot.edit_message_text(
             btn_info["action_value"],
             chat_id,
@@ -1414,7 +1584,6 @@ def callback_inline(call):
             payment_texts.get("binance", DEFAULT_PAYMENT_TEXTS["binance"]),
             chat_id,
             message_id,
-            parse_mode="Markdown",
             reply_markup=get_platform_details_menu(),
         )
     elif call.data == "platform_okx":
@@ -1423,7 +1592,6 @@ def callback_inline(call):
             payment_texts.get("okx", DEFAULT_PAYMENT_TEXTS["okx"]),
             chat_id,
             message_id,
-            parse_mode="Markdown",
             reply_markup=get_platform_details_menu(),
         )
     elif call.data == "platform_trustwallet":
@@ -1434,7 +1602,6 @@ def callback_inline(call):
             ),
             chat_id,
             message_id,
-            parse_mode="Markdown",
             reply_markup=get_platform_details_menu(),
         )
     elif call.data == "invite_earn":
@@ -1543,7 +1710,7 @@ def callback_inline(call):
         global current_ad_photo
         clear_user_states(chat_id)
 
-        how_text = section_texts.get("how", DEFAULT_SECTION_TEXTS["how"])
+        how_text = get_how_text_for_user(user_id)
 
         try:
             bot.delete_message(chat_id, message_id)
@@ -1568,15 +1735,54 @@ def callback_inline(call):
                 reply_markup=get_back_to_main_menu_only(),
             )
 
+    elif call.data == "bot_stats":
+        clear_user_states(chat_id)
+        stats_report = build_bot_stats_report()
+        bot.edit_message_text(
+            stats_report,
+            chat_id,
+            message_id,
+            parse_mode="Markdown",
+            reply_markup=get_back_to_main_menu_only(),
+        )
+
+    elif call.data == "translate_bot":
+        clear_user_states(chat_id)
+        current_lang = get_user_language(user_id)
+        current_label = LANGUAGE_OPTIONS.get(current_lang, LANGUAGE_OPTIONS["ar"])[
+            "label"
+        ]
+        translate_text = (
+            "🌐 **ترجمة البوت واختيار الدولة / اللغة:**\n\n"
+            "اختر لغتك أو دولتك المفضلة ليتم عرض نصوص البوت بلغتك المناسبة:\n"
+            f"• اللغة الحالية: **{current_label}**"
+        )
+        bot.edit_message_text(
+            translate_text,
+            chat_id,
+            message_id,
+            parse_mode="Markdown",
+            reply_markup=get_translate_menu(),
+        )
+
+    elif call.data.startswith("set_lang_"):
+        lang_code = call.data.replace("set_lang_", "", 1)
+        if lang_code not in LANGUAGE_OPTIONS:
+            lang_code = "ar"
+        set_user_language(user_id, lang_code)
+        selected_msg = LANGUAGE_OPTIONS[lang_code]["selected_msg"]
+        bot.answer_callback_query(call.id, selected_msg, show_alert=True)
+        welcome_txt = build_welcome_text(call.from_user)
+        bot.edit_message_text(
+            welcome_txt,
+            chat_id,
+            message_id,
+            reply_markup=get_main_menu(),
+        )
+
     elif call.data == "user_ratings":
         user_waiting_for_support_message[chat_id] = False
-        pos = ratings_data["positive"]
-        neg = ratings_data["negative"]
-        total = pos + neg
-
-        pos_pct = (pos / total * 100) if total > 0 else 0.0
-        neg_pct = (neg / total * 100) if total > 0 else 0.0
-
+        pos, neg, total, pos_pct, neg_pct = get_balanced_ratings()
         has_voted = user_id in ratings_data["voted_users"]
 
         ratings_text = (
@@ -1598,7 +1804,6 @@ def callback_inline(call):
 
     elif call.data == "rate_positive":
         if user_id not in ratings_data["voted_users"]:
-            ratings_data["positive"] += 1
             ratings_data["voted_users"].add(user_id)
             save_rating_vote(user_id, is_positive=True)
             bot.answer_callback_query(
@@ -1609,12 +1814,7 @@ def callback_inline(call):
                 call.id, "⚠️ لقد قمت بالتقييم مسبقاً!", show_alert=True
             )
 
-        pos = ratings_data["positive"]
-        neg = ratings_data["negative"]
-        total = pos + neg
-        pos_pct = (pos / total * 100) if total > 0 else 0.0
-        neg_pct = (neg / total * 100) if total > 0 else 0.0
-
+        pos, neg, total, pos_pct, neg_pct = get_balanced_ratings()
         updated_text = (
             "تقرير التقييم الشامل للبوت:\n\n"
             f"📌 نسبة التقييمات الإيجابية: {pos_pct:.2f}%\n"
@@ -1636,7 +1836,6 @@ def callback_inline(call):
 
     elif call.data == "rate_negative":
         if user_id not in ratings_data["voted_users"]:
-            ratings_data["negative"] += 1
             ratings_data["voted_users"].add(user_id)
             save_rating_vote(user_id, is_positive=False)
             bot.answer_callback_query(
@@ -1647,12 +1846,7 @@ def callback_inline(call):
                 call.id, "⚠️ لقد قمت بالتقييم مسبقاً!", show_alert=True
             )
 
-        pos = ratings_data["positive"]
-        neg = ratings_data["negative"]
-        total = pos + neg
-        pos_pct = (pos / total * 100) if total > 0 else 0.0
-        neg_pct = (neg / total * 100) if total > 0 else 0.0
-
+        pos, neg, total, pos_pct, neg_pct = get_balanced_ratings()
         updated_text = (
             "تقرير التقييم الشامل للبوت:\n\n"
             f"📌 نسبة التقييمات الإيجابية: {pos_pct:.2f}%\n"
@@ -1686,9 +1880,7 @@ def callback_inline(call):
     elif call.data == "extra_contact":
         clear_user_states(chat_id)
         user_waiting_for_support_message[chat_id] = True
-        contact_msg = section_texts.get(
-            "contact", DEFAULT_SECTION_TEXTS["contact"]
-        )
+        contact_msg = get_contact_text_for_user(user_id)
         bot.edit_message_text(
             contact_msg,
             chat_id,
